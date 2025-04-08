@@ -9,11 +9,8 @@ rules:
   resources:
   - deployments
   verbs:
-  - create
-  - delete
   - get
   - list
-  - patch
   - update
   - watch
 - apiGroups:
@@ -21,12 +18,8 @@ rules:
   resources:
   - aihorizontalpodautoscalers
   verbs:
-  - create
-  - delete
   - get
   - list
-  - patch
-  - update
   - watch
 - apiGroups:
   - autoscaling.cortex.me
@@ -42,3 +35,11 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
