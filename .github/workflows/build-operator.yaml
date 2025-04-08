@@ -73,10 +73,12 @@ jobs:
         docker push ${{ secrets.DOCKER_USERNAME }}/operator:${{ env.new_version }}
 
     # Step 7: Deploy to Kubernetes
+# Step 7: Deploy to Kubernetes
     - name: Deploy to Kubernetes
-      env: 
-        KUBECONFIG: ${{ secrets.KUBECONFIG }}
-      run: | 
+      env:
+        KUBECONFIG: ${{ runner.temp }}/kubeconfig
+      run: |
+        echo "${{ secrets.KUBECONFIG }}" > $KUBECONFIG
         cd operator
         kubectl get ns
         make deploy IMG=${{ secrets.DOCKER_USERNAME }}/operator:${{ env.new_version }}
