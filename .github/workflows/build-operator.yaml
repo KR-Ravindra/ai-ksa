@@ -62,5 +62,6 @@ jobs:
 # Step 6: Build and push the Docker image
     - name: Build and push Docker image
       run: |
+        cd operator
         make docker-build IMG=${{ secrets.DOCKER_USERNAME }}/operator:${{ env.new_version }}
         docker push ${{ secrets.DOCKER_USERNAME }}/operator:${{ env.new_version }}
