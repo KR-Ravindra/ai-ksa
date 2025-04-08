@@ -63,6 +63,67 @@ type AIHorizontalPodAutoscalerReconciler struct {
 	Scheme *runtime.Scheme
 }
 
+// Reconcile function
+func (r *AIHorizontalPodAutoscalerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	logger := log.FromContext(ctx)
+
+	err := r.ensureWebhookService(ctx, "operator-system")
+	if err != nil {
+		logger.Error(err, "Failed to ensure webhook service")
+		return ctrl.Result{}, err
+	}
+	// 1. Fetch the AIHorizontalPodAutoscaler instance
+	aihpa := &autoscalingv1.AIHorizontalPodAutoscaler{}
+	err = r.Get(ctx, req.NamespacedName, aihpa)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			logger.Info("AIHorizontalPodAutoscaler resource not found. Ignoring since object must be absent")
+			return ctrl.Result{}, nil
+		}
+		logger.Error(err, "Failed to get AIHorizontalPodAutoscaler")
+		return ctrl.Result{}, err
+	}
+
+	// 2. Fetch the target deployment
+	targetDeployment := &appsv1.Deployment{}
+	err = r.Get(ctx, types.NamespacedName{Name: aihpa.Spec.TargetDeploymentName, Namespace: aihpa.Spec.TargetDeploymentNamespace}, targetDeployment)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			logger.Error(err, "Target deployment not found", "Namespace", aihpa.Spec.TargetDeploymentNamespace, "Name", aihpa.Spec.TargetDeploymentName)
+			return ctrl.Result{}, nil
+		}
+		logger.Error(err, "Failed to get target deployment")
+		return ctrl.Result{}, err
+	}
+
+	// 3. Query the Metrics Server for CPU usage
+	podList := &corev1.PodList{}
+	err = r.List(ctx, podList, client.InNamespace(aihpa.Spec.TargetDeploymentNamespace), client.MatchingLabels(targetDeployment.Spec.Selector.MatchLabels))
+	if err != nil {
+		logger.Error(err, "Failed to list pods for target deployment")
+		return ctrl.Result{}, err
+	}
+
+	// 4. Scale based on CPU
+	if aihpa.Spec.TargetDeploymentCPUThreshold != nil {
+		err = r.scaleDeployment(ctx, logger, targetDeployment, podList, "cpu", int64(*aihpa.Spec.TargetDeploymentCPUThreshold), int32(aihpa.Spec.MinReplicas), int32(aihpa.Spec.MaxReplicas))
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
+	// 5. Scale based on Memory (if the field is provided)
+	if aihpa.Spec.TargetDeploymentMemoryThreshold != nil {
+		err = r.scaleDeployment(ctx, logger, targetDeployment, podList, "memory", int64(*aihpa.Spec.TargetDeploymentMemoryThreshold), int32(aihpa.Spec.MinReplicas), int32(aihpa.Spec.MaxReplicas))
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
+	// 6. Requeue periodically to monitor metrics
+	return ctrl.Result{RequeueAfter: time.Second}, nil
+}
+
 func (r *AIHorizontalPodAutoscalerReconciler) scaleDeployment(ctx context.Context, logger logr.Logger, targetDeployment *appsv1.Deployment, podList *corev1.PodList, metricType string, threshold int64, minReplicas int32, maxReplicas int32) error {
 	totalUsage := int64(0)
 
@@ -113,62 +174,6 @@ func (r *AIHorizontalPodAutoscalerReconciler) scaleDeployment(ctx context.Contex
 	}
 
 	return nil
-}
-
-// Reconcile function
-func (r *AIHorizontalPodAutoscalerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logger := log.FromContext(ctx)
-
-	// 1. Fetch the AIHorizontalPodAutoscaler instance
-	aihpa := &autoscalingv1.AIHorizontalPodAutoscaler{}
-	err := r.Get(ctx, req.NamespacedName, aihpa)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			logger.Info("AIHorizontalPodAutoscaler resource not found. Ignoring since object must be absent")
-			return ctrl.Result{}, nil
-		}
-		logger.Error(err, "Failed to get AIHorizontalPodAutoscaler")
-		return ctrl.Result{}, err
-	}
-
-	// 2. Fetch the target deployment
-	targetDeployment := &appsv1.Deployment{}
-	err = r.Get(ctx, types.NamespacedName{Name: aihpa.Spec.TargetDeploymentName, Namespace: aihpa.Spec.TargetDeploymentNamespace}, targetDeployment)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			logger.Error(err, "Target deployment not found", "Namespace", aihpa.Spec.TargetDeploymentNamespace, "Name", aihpa.Spec.TargetDeploymentName)
-			return ctrl.Result{}, nil
-		}
-		logger.Error(err, "Failed to get target deployment")
-		return ctrl.Result{}, err
-	}
-
-	// 3. Query the Metrics Server for CPU usage
-	podList := &corev1.PodList{}
-	err = r.List(ctx, podList, client.InNamespace(aihpa.Spec.TargetDeploymentNamespace), client.MatchingLabels(targetDeployment.Spec.Selector.MatchLabels))
-	if err != nil {
-		logger.Error(err, "Failed to list pods for target deployment")
-		return ctrl.Result{}, err
-	}
-
-	// 4. Scale based on CPU
-	if aihpa.Spec.TargetDeploymentCPUThreshold != nil {
-		err = r.scaleDeployment(ctx, logger, targetDeployment, podList, "cpu", int64(*aihpa.Spec.TargetDeploymentCPUThreshold), int32(aihpa.Spec.MinReplicas), int32(aihpa.Spec.MaxReplicas))
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
-	// 5. Scale based on Memory (if the field is provided)
-	if aihpa.Spec.TargetDeploymentMemoryThreshold != nil {
-		err = r.scaleDeployment(ctx, logger, targetDeployment, podList, "memory", int64(*aihpa.Spec.TargetDeploymentMemoryThreshold), int32(aihpa.Spec.MinReplicas), int32(aihpa.Spec.MaxReplicas))
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
-	// 6. Requeue periodically to monitor metrics
-	return ctrl.Result{RequeueAfter: time.Second}, nil
 }
 
 func (r *AIHorizontalPodAutoscalerReconciler) handleWebhook(w http.ResponseWriter, req *http.Request) {
@@ -288,12 +293,6 @@ func (r *AIHorizontalPodAutoscalerReconciler) ensureWebhookService(ctx context.C
 func (r *AIHorizontalPodAutoscalerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	go r.startWebhookServer()
-
-	ctx := context.Background()
-	err := r.ensureWebhookService(ctx, "operator-system")
-	if err != nil {
-		return err
-	}
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&autoscalingv1.AIHorizontalPodAutoscaler{}).
