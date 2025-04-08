@@ -27,7 +27,9 @@ import (
 type AIHorizontalPodAutoscalerSpec struct {
 	TargetDeploymentName      string `json:"targetDeploymentName"`
 	TargetDeploymentNamespace string `json:"targetDeploymentNamespace"`
-	TargetDeploymentCPUThreshold int    `json:"targetDeploymentCPUThreshold"` // New field
+	TargetDeploymentCPUThreshold *int    `json:"targetDeploymentCPUThreshold,omitempty"` // New field
+	TargetDeploymentMemoryThreshold *int `json:"targetDeploymentMemoryThreshold,omitempty"` // Added memory threshold field
+	ExternalMetricEndpoint 	string `json:"externalMetricEndpoint,omitempty"`
 	MinReplicas               int    `json:"minReplicas"`
 	MaxReplicas               int    `json:"maxReplicas"`
   }
