@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
+
 
 jobs:
   build-and-push:
@@ -19,6 +21,11 @@ jobs:
       uses: actions/setup-go@v4
       with:
         go-version: 1.23
+    
+    - name: Set up kubectl
+      uses: azure/setup-kubectl@v1
+      with:
+        version: 'latest'
 
     # Step 3: Extract the current version and increment it
     - name: Increment version
@@ -59,9 +66,17 @@ jobs:
         password: ${{ secrets.DOCKER_PASSWORD }}
 
     # Step 6: Build and push the Docker image
-# Step 6: Build and push the Docker image
     - name: Build and push Docker image
       run: |
         cd operator
         make docker-build IMG=${{ secrets.DOCKER_USERNAME }}/operator:${{ env.new_version }}
         docker push ${{ secrets.DOCKER_USERNAME }}/operator:${{ env.new_version }}
+
+    # Step 7: Deploy to Kubernetes
+    - name: Deploy to Kubernetes
+      env: 
+        KUBECONFIG: ${{ secrets.KUBECONFIG }}
+      run: | 
+        cd operator
+        kubectl get ns
+        make deploy IMG=${{ secrets.DOCKER_USERNAME }}/operator:${{ env.new_version }}
