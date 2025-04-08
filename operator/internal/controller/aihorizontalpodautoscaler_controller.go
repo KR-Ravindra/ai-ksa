@@ -51,6 +51,7 @@ func init() {
 }
 
 // +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch
+// +kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;update
 // +kubebuilder:rbac:groups=metrics.k8s.io,resources=pods,verbs=get;list;watch
 // +kubebuilder:rbac:groups=autoscaling.cortex.me,resources=aihorizontalpodautoscalers,verbs=get;list;watch
