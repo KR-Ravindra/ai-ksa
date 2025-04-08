@@ -12,6 +12,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	metricsv "k8s.io/metrics/pkg/client/clientset/versioned"
@@ -67,9 +68,14 @@ type AIHorizontalPodAutoscalerReconciler struct {
 func (r *AIHorizontalPodAutoscalerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
+	err := r.ensureWebhookService(ctx, "operator-system")
+	if err != nil {
+		logger.Error(err, "Failed to ensure webhook service")
+		return ctrl.Result{}, err
+	}
 	// 1. Fetch the AIHorizontalPodAutoscaler instance
 	aihpa := &autoscalingv1.AIHorizontalPodAutoscaler{}
-	err := r.Get(ctx, req.NamespacedName, aihpa)
+	err = r.Get(ctx, req.NamespacedName, aihpa)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			logger.Info("AIHorizontalPodAutoscaler resource not found. Ignoring since object must be absent")
@@ -222,10 +228,72 @@ func (r *AIHorizontalPodAutoscalerReconciler) handleWebhook(w http.ResponseWrite
 	w.Write([]byte("Scaling decision triggered successfully"))
 }
 
+func (r *AIHorizontalPodAutoscalerReconciler) startWebhookServer() {
+	http.HandleFunc("/trigger", r.handleWebhook)
+	port := "8080" // Define the port for the webhook server
+	log := log.FromContext(context.Background())
+	log.Info("Starting webhook server", "port", port)
+
+	err := http.ListenAndServe(":"+port, nil)
+	if err != nil {
+		log.Error(err, "Failed to start webhook server")
+	}
+}
+
+func (r *AIHorizontalPodAutoscalerReconciler) ensureWebhookService(ctx context.Context, namespace string) error {
+	logger := log.FromContext(ctx)
+
+	// Define the Service
+	service := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "ai-horizontal-pod-autoscaler-webhook",
+			Namespace: namespace,
+			Labels: map[string]string{
+				"app": "ai-horizontal-pod-autoscaler", // FIX THIS 
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			Selector: map[string]string{
+				"app": "ai-horizontal-pod-autoscaler",
+			},
+			Ports: []corev1.ServicePort{
+				{
+					Protocol:   corev1.ProtocolTCP,
+					Port:       8080,                 // External port
+					TargetPort: intstr.FromInt(8080), // Port exposed by the operator
+				},
+			},
+		},
+	}
+
+	// Check if the Service already exists
+	existingService := &corev1.Service{}
+	err := r.Get(ctx, types.NamespacedName{Name: service.Name, Namespace: service.Namespace}, existingService)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			// Create the Service if it does not exist
+			logger.Info("Creating webhook service", "Service.Name", service.Name, "Service.Namespace", service.Namespace)
+			err = r.Create(ctx, service)
+			if err != nil {
+				logger.Error(err, "Failed to create webhook service")
+				return err
+			}
+			logger.Info("Webhook service created successfully")
+		} else {
+			logger.Error(err, "Failed to get webhook service")
+			return err
+		}
+	} else {
+		logger.Info("Webhook service already exists", "Service.Name", service.Name, "Service.Namespace", service.Namespace)
+	}
+
+	return nil
+}
+
 // SetupWithManager sets up the controller with the Manager.
 func (r *AIHorizontalPodAutoscalerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
-    mgr.GetWebhookServer().Register("/trigger", http.HandlerFunc(r.handleWebhook))
+	go r.startWebhookServer()
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&autoscalingv1.AIHorizontalPodAutoscaler{}).
