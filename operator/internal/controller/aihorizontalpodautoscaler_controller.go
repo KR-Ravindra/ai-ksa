@@ -105,13 +105,14 @@ func (r *AIHorizontalPodAutoscalerReconciler) Reconcile(ctx context.Context, req
 		for _, container := range metrics.Containers {
 			logger.Info("Raw CPU Usage", "Pod.Name", pod.Name, "Container.Name", container.Name, "RawUsage", container.Usage.Cpu().String())
 			logger.Info("Debug CPU Usage", 
-			"RawUsage", container.Usage.Cpu().String(), 
-			"Value", container.Usage.Cpu().Value(), 
-			"MilliValue", container.Usage.Cpu().MilliValue())
-		
-			cpuUsage, _ := container.Usage.Cpu().AsInt64()
-			logger.Info("CPU Usage", "Pod.Name", pod.Name, "Container.Name", container.Name, "CPUUsage", cpuUsage)
-			totalCPUUsage += cpuUsage
+				"RawUsage", container.Usage.Cpu().String(), 
+				"Value", container.Usage.Cpu().Value(), 
+				"MilliValue", container.Usage.Cpu().MilliValue())
+			
+			// Use MilliValue instead of AsInt64
+			cpuUsageMilli := container.Usage.Cpu().MilliValue()
+			logger.Info("CPU Usage in MilliCPU", "Pod.Name", pod.Name, "Container.Name", container.Name, "CPUUsageMilli", cpuUsageMilli)
+			totalCPUUsage += int64(cpuUsageMilli) // Accumulate milliCPU values
 		}
 	}
 
