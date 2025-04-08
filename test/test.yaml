@@ -1,0 +1,11 @@
+apiVersion: autoscaling.cortex.me/v1 # Make sure this matches your CRD
+kind: AIHorizontalPodAutoscaler
+metadata:
+  name: my-test-autoscaler # Give it a unique name
+  namespace: default # Or the namespace where you want the Deployment
+spec:
+  targetDeploymentName: anything # This won't be used in this simple version
+  targetDeploymentNamespace: default # This won't be used
+  cpuThreshold: 80 # These won't be used yet
+  minReplicas: 1
+  maxReplicas: 5

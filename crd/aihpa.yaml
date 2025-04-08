@@ -1,0 +1,42 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: aihpas.autoscaling.cortex.me
+spec:
+  group: autoscaling.cortex.me
+  versions:
+    - name: v1
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                targetDeploymentName:
+                  type: string
+                targetDeploymentNamespace:
+                  type: string
+                cpuThreshold:
+                  type: integer
+                minReplicas:
+                  type: integer
+                maxReplicas:
+                  type: integer
+              required:
+                - targetDeploymentName
+                - targetDeploymentNamespace
+                - cpuThreshold
+                - minReplicas
+                - maxReplicas
+          required:
+            - spec
+      served: true
+      storage: true
+  scope: Namespaced
+  names:
+    plural: aihpas
+    singular: aihpa
+    kind: AIHorizontalPodAutoscaler
+    shortNames:
+      - aihpa
