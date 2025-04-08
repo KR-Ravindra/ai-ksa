@@ -104,6 +104,11 @@ func (r *AIHorizontalPodAutoscalerReconciler) Reconcile(ctx context.Context, req
 		}
 		for _, container := range metrics.Containers {
 			logger.Info("Raw CPU Usage", "Pod.Name", pod.Name, "Container.Name", container.Name, "RawUsage", container.Usage.Cpu().String())
+			logger.Info("Debug CPU Usage", 
+			"RawUsage", container.Usage.Cpu().String(), 
+			"Value", container.Usage.Cpu().Value(), 
+			"MilliValue", container.Usage.Cpu().MilliValue())
+		
 			cpuUsage, _ := container.Usage.Cpu().AsInt64()
 			logger.Info("CPU Usage", "Pod.Name", pod.Name, "Container.Name", container.Name, "CPUUsage", cpuUsage)
 			totalCPUUsage += cpuUsage
