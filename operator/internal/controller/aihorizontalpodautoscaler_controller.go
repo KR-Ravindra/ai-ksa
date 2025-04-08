@@ -12,7 +12,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	metricsv "k8s.io/metrics/pkg/client/clientset/versioned"
@@ -68,14 +67,9 @@ type AIHorizontalPodAutoscalerReconciler struct {
 func (r *AIHorizontalPodAutoscalerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
-	err := r.ensureWebhookService(ctx, "operator-system")
-	if err != nil {
-		logger.Error(err, "Failed to ensure webhook service")
-		return ctrl.Result{}, err
-	}
 	// 1. Fetch the AIHorizontalPodAutoscaler instance
 	aihpa := &autoscalingv1.AIHorizontalPodAutoscaler{}
-	err = r.Get(ctx, req.NamespacedName, aihpa)
+	err := r.Get(ctx, req.NamespacedName, aihpa)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			logger.Info("AIHorizontalPodAutoscaler resource not found. Ignoring since object must be absent")
