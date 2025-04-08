@@ -45,6 +45,7 @@ func init() {
 		panic(err)
 	}
 }
+
 // +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;update
 // +kubebuilder:rbac:groups=metrics.k8s.io,resources=pods,verbs=get;list;watch
@@ -103,6 +104,7 @@ func (r *AIHorizontalPodAutoscalerReconciler) Reconcile(ctx context.Context, req
 		}
 		for _, container := range metrics.Containers {
 			cpuUsage, _ := container.Usage.Cpu().AsInt64()
+			logger.Info("CPU Usage", "Pod.Name", pod.Name, "Container.Name", container.Name, "CPUUsage", cpuUsage)
 			totalCPUUsage += cpuUsage
 		}
 	}
