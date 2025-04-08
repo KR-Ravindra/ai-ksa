@@ -228,72 +228,10 @@ func (r *AIHorizontalPodAutoscalerReconciler) handleWebhook(w http.ResponseWrite
 	w.Write([]byte("Scaling decision triggered successfully"))
 }
 
-func (r *AIHorizontalPodAutoscalerReconciler) startWebhookServer() {
-	http.HandleFunc("/trigger", r.handleWebhook)
-	port := "8080" // Define the port for the webhook server
-	log := log.FromContext(context.Background())
-	log.Info("Starting webhook server", "port", port)
-
-	err := http.ListenAndServe(":"+port, nil)
-	if err != nil {
-		log.Error(err, "Failed to start webhook server")
-	}
-}
-
-func (r *AIHorizontalPodAutoscalerReconciler) ensureWebhookService(ctx context.Context, namespace string) error {
-	logger := log.FromContext(ctx)
-
-	// Define the Service
-	service := &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "ai-horizontal-pod-autoscaler-webhook",
-			Namespace: namespace,
-			Labels: map[string]string{
-				"app": "ai-horizontal-pod-autoscaler",
-			},
-		},
-		Spec: corev1.ServiceSpec{
-			Selector: map[string]string{
-				"app": "ai-horizontal-pod-autoscaler",
-			},
-			Ports: []corev1.ServicePort{
-				{
-					Protocol:   corev1.ProtocolTCP,
-					Port:       8080,                 // External port
-					TargetPort: intstr.FromInt(8080), // Port exposed by the operator
-				},
-			},
-		},
-	}
-
-	// Check if the Service already exists
-	existingService := &corev1.Service{}
-	err := r.Get(ctx, types.NamespacedName{Name: service.Name, Namespace: service.Namespace}, existingService)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			// Create the Service if it does not exist
-			logger.Info("Creating webhook service", "Service.Name", service.Name, "Service.Namespace", service.Namespace)
-			err = r.Create(ctx, service)
-			if err != nil {
-				logger.Error(err, "Failed to create webhook service")
-				return err
-			}
-			logger.Info("Webhook service created successfully")
-		} else {
-			logger.Error(err, "Failed to get webhook service")
-			return err
-		}
-	} else {
-		logger.Info("Webhook service already exists", "Service.Name", service.Name, "Service.Namespace", service.Namespace)
-	}
-
-	return nil
-}
-
 // SetupWithManager sets up the controller with the Manager.
 func (r *AIHorizontalPodAutoscalerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
-	go r.startWebhookServer()
+    mgr.GetWebhookServer().Register("/trigger", http.HandlerFunc(r.handleWebhook))
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&autoscalingv1.AIHorizontalPodAutoscaler{}).
