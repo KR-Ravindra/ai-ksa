@@ -41,20 +41,20 @@ spec:
             description: AIHorizontalPodAutoscalerSpec defines the desired state of
               AIHorizontalPodAutoscaler
             properties:
-              cpuThreshold:
-                type: integer
               maxReplicas:
                 type: integer
               minReplicas:
+                type: integer
+              targetDeploymentCPUThreshold:
                 type: integer
               targetDeploymentName:
                 type: string
               targetDeploymentNamespace:
                 type: string
             required:
-            - cpuThreshold
             - maxReplicas
             - minReplicas
+            - targetDeploymentCPUThreshold
             - targetDeploymentName
             - targetDeploymentNamespace
             type: object
