@@ -27,8 +27,12 @@ import (
 type ScheduledScalerSpec struct {
 	TargetDeploymentName      string `json:"targetDeploymentName"`
 	TargetDeploymentNamespace string `json:"targetDeploymentNamespace"`
-	Schedule                  string `json:"schedule"` // Cron expression
-	Replicas                  int32  `json:"replicas"` // Desired number of replicas
+	Schedule                  string `json:"schedule,omitempty"`    // Cron expression
+	Replicas                  int32  `json:"replicas"`              // Desired number of replicas
+	StartTime                 string `json:"startTime,omitempty"`   // Optional field to specify start time
+	OneTime                   bool   `json:"oneTime,omitempty"`     // Optional field to scale down once
+	Duration                  string `json:"duration,omitempty"`    // Optional field to specify duration for scaling
+	EndReplicas               int32  `json:"endReplicas,omitempty"` // Optional field to specify end replicas
 }
 
 // ScheduledScalerStatus defines the observed state of ScheduledScaler

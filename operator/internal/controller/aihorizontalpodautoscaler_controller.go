@@ -21,13 +21,13 @@ import (
 
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/go-logr/logr"
 	autoscalingv1 "github.com/kr-ravindra/ai-ksa/api/v1"
 	batchv1 "k8s.io/api/batch/v1"
+	cron "github.com/robfig/cron/v3"
 )
 
 var (
@@ -105,88 +105,234 @@ func (r *AIHorizontalPodAutoscalerReconciler) Reconcile(ctx context.Context, req
 }
 
 func (r *AIHorizontalPodAutoscalerReconciler) reconcileScheduledScaler(ctx context.Context, scheduledScaler *autoscalingv1.ScheduledScaler) (ctrl.Result, error) {
-	logger := log.FromContext(ctx)
+    logger := log.FromContext(ctx)
+	
+    logger.Info("Reconciling ScheduledScaler", "Name", scheduledScaler.Name, "Namespace", scheduledScaler.Namespace)
 	cronJobName := fmt.Sprintf("%s-scheduler", scheduledScaler.Name)
+	
+    // 1. Handle recurring scheduled scaling
+    if scheduledScaler.Spec.Schedule != "" && !scheduledScaler.Spec.OneTime {
+        logger.V(1).Info("Recurring ScheduledScaler detected", "Schedule", scheduledScaler.Spec.Schedule, "Duration", scheduledScaler.Spec.Duration)
 
-	logger.Info("Reconciling ScheduledScaler with CronJob", "Name", scheduledScaler.Name, "Namespace", scheduledScaler.Namespace, "Schedule", scheduledScaler.Spec.Schedule, "Replicas", scheduledScaler.Spec.Replicas, "CronJobName", cronJobName)
+        // Define the CronJob for scaling up
+        scaleUpCronJob := &batchv1.CronJob{
+            ObjectMeta: metav1.ObjectMeta{
+                Name:      fmt.Sprintf("%s-scale-up", cronJobName),
+                Namespace: scheduledScaler.Namespace,
+                Labels: map[string]string{
+                    "app":        "ai-ksa-scheduled-scaler",
+                    "scheduler":  scheduledScaler.Name,
+                    "controller": "aihorizontalpodautoscaler-controller",
+                },
+            },
+            Spec: batchv1.CronJobSpec{
+                Schedule: scheduledScaler.Spec.Schedule,
+                JobTemplate: batchv1.JobTemplateSpec{
+                    Spec: batchv1.JobSpec{
+                        Template: corev1.PodTemplateSpec{
+                            Spec: corev1.PodSpec{
+                                RestartPolicy: corev1.RestartPolicyNever,
+                                Containers: []corev1.Container{
+                                    {
+                                        Name:    "scaler",
+                                        Image:   "curlimages/curl:latest",
+                                        Command: []string{"/bin/sh", "-c"},
+                                        Args: []string{
+                                            fmt.Sprintf(`
+                                                curl -X POST -H "Content-Type: application/json" -d '
+                                                {
+                                                    "namespace": "%s",
+                                                    "deployment": "%s",
+                                                    "metricType": "overwrite",
+                                                    "instructReplicas": %d
+                                                }
+                                                ' http://operator-controller-manager-autoscale-trigger.operator-system.svc.cluster.local:8080/trigger
+                                            `, scheduledScaler.Namespace, scheduledScaler.Spec.TargetDeploymentName, scheduledScaler.Spec.Replicas),
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        }
 
-	// 1. Define the desired CronJob
-	desiredCronJob := &batchv1.CronJob{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cronJobName,
-			Namespace: scheduledScaler.Namespace,
-			Labels: map[string]string{
-				"app":        "ai-ksa-scheduled-scaler",
-				"scheduler":  scheduledScaler.Name,
-				"controller": "aihorizontalpodautoscaler-controller", // Static identifier for the controller
-			},
-		},
-		Spec: batchv1.CronJobSpec{
-			Schedule: scheduledScaler.Spec.Schedule,
-			JobTemplate: batchv1.JobTemplateSpec{
-				Spec: batchv1.JobSpec{
-					Template: corev1.PodTemplateSpec{
-						Spec: corev1.PodSpec{
-							RestartPolicy: corev1.RestartPolicyNever,
-							Containers: []corev1.Container{
-								{
-									Name:    "scaler",
-									Image:   "curlimages/curl:latest", // A simple image with curl
-									Command: []string{"/bin/sh", "-c"},
-									Args: []string{
-										fmt.Sprintf(`
-											curl -X POST -H "Content-Type: application/json" -d '
-											{
-												"namespace": "%s",
-												"deployment": "%s",
-												"metricType": "overwrite",
-												"instructReplicas": %d
-											}
-											' http://operator-controller-manager-autoscale-trigger.operator-system.svc.cluster.local:8080/trigger
-										`, scheduledScaler.Namespace, scheduledScaler.Spec.TargetDeploymentName, scheduledScaler.Spec.Replicas),
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-	// Set the owner reference so the CronJob is deleted when the ScheduledScaler is deleted
-	if err := controllerutil.SetControllerReference(scheduledScaler, desiredCronJob, r.Scheme); err != nil {
-		logger.Error(err, "Failed to set controller reference for CronJob")
-		return ctrl.Result{}, err
-	}
-
-	// 2. Check if the CronJob already exists
-	existingCronJob := &batchv1.CronJob{}
-	err := r.Get(ctx, types.NamespacedName{Name: cronJobName, Namespace: scheduledScaler.Namespace}, existingCronJob)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			logger.Info("Creating CronJob for ScheduledScaler", "CronJobName", cronJobName)
-			if err := r.Create(ctx, desiredCronJob); err != nil {
-				logger.Error(err, "Failed to create CronJob")
-				return ctrl.Result{}, err
-			}
-			return ctrl.Result{}, nil // Successfully created
-		}
-		logger.Error(err, "Failed to get CronJob")
-		return ctrl.Result{}, err
-	}
-
-	// 3. If the CronJob exists, update it if necessary
-	if !reflect.DeepEqual(existingCronJob.Spec, desiredCronJob.Spec) {
-		logger.Info("Updating CronJob for ScheduledScaler", "CronJobName", cronJobName)
-		existingCronJob.Spec = desiredCronJob.Spec
-		if err := r.Update(ctx, existingCronJob); err != nil {
-			logger.Error(err, "Failed to update CronJob")
+        // Define the CronJob for scaling down
+		startCronExpression := scheduledScaler.Spec.Schedule
+        duration := scheduledScaler.Spec.Duration
+        // Calculate the end cron expression
+        startTime, err := parseCronToNextTime(startCronExpression)
+        if err != nil {
+            logger.Error(err, "Failed to parse start cron expression", "Schedule", startCronExpression)
+            return ctrl.Result{}, err
+        }
+		parsedDuration, err := time.ParseDuration(duration + "m")
+		if err != nil {
+			logger.Error(err, "Failed to parse duration", "Duration", duration)
 			return ctrl.Result{}, err
 		}
-	}
+		endTime := startTime.Add(parsedDuration)
+		logger.V(2).Info("Start time calculated", "StartTime", startTime)
+		logger.V(2).Info("Duration parsed", "Duration", parsedDuration)
+		logger.V(2).Info("End time calculated", "EndTime", endTime)
+        endCronExpression := formatTimeToCron(endTime)
 
-	logger.V(1).Info("CronJob reconciled", "CronJobName", cronJobName)
-	return ctrl.Result{}, nil
+
+        scaleDownCronJob := &batchv1.CronJob{
+            ObjectMeta: metav1.ObjectMeta{
+                Name:      fmt.Sprintf("%s-scale-down", cronJobName),
+                Namespace: scheduledScaler.Namespace,
+                Labels: map[string]string{
+                    "app":        "ai-ksa-scheduled-scaler",
+                    "scheduler":  scheduledScaler.Name,
+                    "controller": "aihorizontalpodautoscaler-controller",
+                },
+            },
+            Spec: batchv1.CronJobSpec{
+                Schedule: endCronExpression,
+                JobTemplate: batchv1.JobTemplateSpec{
+                    Spec: batchv1.JobSpec{
+                        Template: corev1.PodTemplateSpec{
+                            Spec: corev1.PodSpec{
+                                RestartPolicy: corev1.RestartPolicyNever,
+                                Containers: []corev1.Container{
+                                    {
+                                        Name:    "scaler",
+                                        Image:   "curlimages/curl:latest",
+                                        Command: []string{"/bin/sh", "-c"},
+                                        Args: []string{
+                                            fmt.Sprintf(`
+                                                curl -X POST -H "Content-Type: application/json" -d '
+                                                {
+                                                    "namespace": "%s",
+                                                    "deployment": "%s",
+                                                    "metricType": "overwrite",
+                                                    "instructReplicas": %d
+                                                }
+                                                ' http://operator-controller-manager-autoscale-trigger.operator-system.svc.cluster.local:8080/trigger
+                                            `, scheduledScaler.Namespace, scheduledScaler.Spec.TargetDeploymentName, scheduledScaler.Spec.EndReplicas),
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        }
+
+        // Create or update the scale-up CronJob
+        if err := r.createOrUpdateCronJob(ctx, scaleUpCronJob); err != nil {
+            logger.Error(err, "Failed to create or update scale-up CronJob")
+            return ctrl.Result{}, err
+        }
+
+        // Create or update the scale-down CronJob
+        if err := r.createOrUpdateCronJob(ctx, scaleDownCronJob); err != nil {
+            logger.Error(err, "Failed to create or update scale-down CronJob")
+            return ctrl.Result{}, err
+        }
+
+        logger.Info("Recurring CronJobs reconciled", "ScaleUpCronJob", scaleUpCronJob.Name, "ScaleDownCronJob", scaleDownCronJob.Name)
+        return ctrl.Result{}, nil
+    }
+
+    // 2. Handle one-time scheduled scaling
+    if scheduledScaler.Spec.OneTime {
+        logger.Info("One-time ScheduledScaler detected", "StartTime", scheduledScaler.Spec.StartTime)
+
+        // Parse the start time
+        startTime, err := time.Parse(time.RFC3339, scheduledScaler.Spec.StartTime)
+        if err != nil {
+            logger.Error(err, "Failed to parse start time", "StartTime", scheduledScaler.Spec.StartTime)
+            return ctrl.Result{}, err
+        }
+
+        // Check if the start time is in the future
+        currentTime := time.Now().UTC()
+        if currentTime.Before(startTime) {
+            // Requeue to check again closer to the start time
+            requeueAfter := time.Until(startTime)
+            logger.Info("Requeueing until start time", "RequeueAfter", requeueAfter)
+            return ctrl.Result{RequeueAfter: requeueAfter}, nil
+        }
+
+        // Trigger scaling logic
+        logger.Info("Triggering one-time scaling logic", "Deployment", scheduledScaler.Spec.TargetDeploymentName, "Replicas", scheduledScaler.Spec.Replicas)
+		// Fetch the target deployment
+		targetDeployment := &appsv1.Deployment{}
+		err = r.Get(ctx, types.NamespacedName{Name: scheduledScaler.Spec.TargetDeploymentName, Namespace: scheduledScaler.Namespace}, targetDeployment)
+		if err != nil {
+			logger.Error(err, "Failed to fetch target deployment", "Namespace", scheduledScaler.Namespace, "Name", scheduledScaler.Spec.TargetDeploymentName)
+			return ctrl.Result{}, err
+		}
+
+		// Fetch the pods for the deployment
+		podList := &corev1.PodList{}
+		err = r.List(ctx, podList, client.InNamespace(scheduledScaler.Namespace), client.MatchingLabels(targetDeployment.Spec.Selector.MatchLabels))
+		if err != nil {
+			logger.Error(err, "Failed to list pods for target deployment", "Namespace", scheduledScaler.Namespace, "Name", scheduledScaler.Spec.TargetDeploymentName)
+			return ctrl.Result{}, err
+		}
+
+		// Call scaleDeployment with the correct arguments
+		err = r.scaleDeployment(ctx, logger, targetDeployment, podList, "overwrite", 0, &scheduledScaler.Spec.EndReplicas)
+        if err != nil {
+            logger.Error(err, "Failed to trigger one-time scaling")
+            return ctrl.Result{}, err
+        }
+
+        logger.Info("One-time scaling completed")
+        return ctrl.Result{}, nil
+    }
+
+    logger.Info("No valid schedule or one-time event found for ScheduledScaler", "Name", scheduledScaler.Name)
+    return ctrl.Result{}, nil
+}
+
+func parseCronToNextTime(cronExpression string) (time.Time, error) {
+    parser := cron.NewParser(cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow)
+    schedule, err := parser.Parse(cronExpression)
+    if err != nil {
+        return time.Time{}, err
+    }
+    return schedule.Next(time.Now()), nil
+}
+
+func formatTimeToCron(t time.Time) string {
+    return fmt.Sprintf("%d %d %d %d *", t.Minute(), t.Hour(), t.Day(), int(t.Month()))
+}
+
+func (r *AIHorizontalPodAutoscalerReconciler) createOrUpdateCronJob(ctx context.Context, cronJob *batchv1.CronJob) error {
+    existingCronJob := &batchv1.CronJob{}
+    err := r.Get(ctx, types.NamespacedName{Name: cronJob.Name, Namespace: cronJob.Namespace}, existingCronJob)
+    if err != nil {
+        if errors.IsNotFound(err) {
+            // Create the CronJob if it doesn't exist
+            return r.Create(ctx, cronJob)
+        }
+        return err
+    }
+
+    // Update the CronJob if it exists but differs
+    if !reflect.DeepEqual(existingCronJob.Spec, cronJob.Spec) {
+        existingCronJob.Spec = cronJob.Spec
+        return r.Update(ctx, existingCronJob)
+    }
+
+    return nil
+}
+
+func (r *AIHorizontalPodAutoscalerReconciler) triggerScaling(ctx context.Context, namespace, deploymentName string, replicas int32) error {
+    targetDeployment := &appsv1.Deployment{}
+    err := r.Get(ctx, types.NamespacedName{Name: deploymentName, Namespace: namespace}, targetDeployment)
+    if err != nil {
+        return err
+    }
+
+    targetDeployment.Spec.Replicas = &replicas
+    return r.Update(ctx, targetDeployment)
 }
 
 func (r *AIHorizontalPodAutoscalerReconciler) reconcileAIHorizontalPodAutoscaler(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
