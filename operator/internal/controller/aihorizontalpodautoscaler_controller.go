@@ -304,11 +304,15 @@ func formatTimeToCron(t time.Time) string {
 	return fmt.Sprintf("%d %d %d %d *", t.Minute(), t.Hour(), t.Day(), int(t.Month()))
 }
 
-func (r *AIHorizontalPodAutoscalerReconciler) createOrUpdateCronJob(ctx context.Context, cronJob *batchv1.CronJob) error {
+func (r *AIHorizontalPodAutoscalerReconciler) createOrUpdateCronJob(ctx context.Context, cronJob *batchv1.CronJob, owner metav1.Object) error {
 	existingCronJob := &batchv1.CronJob{}
 	err := r.Get(ctx, types.NamespacedName{Name: cronJob.Name, Namespace: cronJob.Namespace}, existingCronJob)
 	if err != nil {
 		if errors.IsNotFound(err) {
+			// Set the owner reference
+			if err := ctrl.SetControllerReference(owner, cronJob, r.Scheme); err != nil {
+				return err
+			}
 			// Create the CronJob if it doesn't exist
 			return r.Create(ctx, cronJob)
 		}
@@ -323,8 +327,6 @@ func (r *AIHorizontalPodAutoscalerReconciler) createOrUpdateCronJob(ctx context.
 
 	return nil
 }
-
-
 
 func (r *AIHorizontalPodAutoscalerReconciler) reconcileAIHorizontalPodAutoscaler(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
