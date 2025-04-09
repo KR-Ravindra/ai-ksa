@@ -222,13 +222,13 @@ func (r *AIHorizontalPodAutoscalerReconciler) reconcileScheduledScaler(ctx conte
 		}
 
 		// Create or update the scale-up CronJob
-		if err := r.createOrUpdateCronJob(ctx, scaleUpCronJob); err != nil {
+		if err := r.createOrUpdateCronJob(ctx, scaleUpCronJob, scheduledScaler); err != nil {
 			logger.Error(err, "Failed to create or update scale-up CronJob")
 			return ctrl.Result{}, err
 		}
 
 		// Create or update the scale-down CronJob
-		if err := r.createOrUpdateCronJob(ctx, scaleDownCronJob); err != nil {
+		if err := r.createOrUpdateCronJob(ctx, scaleDownCronJob, scheduledScaler); err != nil {
 			logger.Error(err, "Failed to create or update scale-down CronJob")
 			return ctrl.Result{}, err
 		}
