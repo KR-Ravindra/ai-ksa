@@ -277,7 +277,7 @@ func (r *AIHorizontalPodAutoscalerReconciler) reconcileScheduledScaler(ctx conte
 
 		// Call scaleDeployment with the correct arguments
 		logger.V(1).Info("Calling scaleDeployment for one-time scaling", "TargetDeployment", targetDeployment.Name, "Replicas", scheduledScaler.Spec.Replicas)
-		err = r.scaleDeployment(ctx, logger, targetDeployment, podList, "overwrite", 0, &scheduledScaler.Spec.EndReplicas)
+		err = r.scaleDeployment(ctx, logger, targetDeployment, podList, "overwrite", 0, &scheduledScaler.Spec.Replicas)
 		if err != nil {
 			logger.Error(err, "Failed to trigger one-time scaling")
 			return ctrl.Result{}, err
