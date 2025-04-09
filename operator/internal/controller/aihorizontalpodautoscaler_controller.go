@@ -100,7 +100,7 @@ func (r *AIHorizontalPodAutoscalerReconciler) Reconcile(ctx context.Context, req
 
 	// 4. Scale based on CPU
 	if aihpa.Spec.TargetDeploymentCPUThreshold != nil {
-		err = r.scaleDeployment(ctx, logger, targetDeployment, podList, "cpu", int64(*aihpa.Spec.TargetDeploymentCPUThreshold), int32(aihpa.Spec.MinReplicas), int32(aihpa.Spec.MaxReplicas))
+		err = r.scaleDeployment(ctx, logger, targetDeployment, podList, "cpu", int64(*aihpa.Spec.TargetDeploymentCPUThreshold), int32(aihpa.Spec.MinReplicas), int32(aihpa.Spec.MaxReplicas), nil)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -108,7 +108,7 @@ func (r *AIHorizontalPodAutoscalerReconciler) Reconcile(ctx context.Context, req
 
 	// 5. Scale based on Memory (if the field is provided)
 	if aihpa.Spec.TargetDeploymentMemoryThreshold != nil {
-		err = r.scaleDeployment(ctx, logger, targetDeployment, podList, "memory", int64(*aihpa.Spec.TargetDeploymentMemoryThreshold), int32(aihpa.Spec.MinReplicas), int32(aihpa.Spec.MaxReplicas))
+		err = r.scaleDeployment(ctx, logger, targetDeployment, podList, "memory", int64(*aihpa.Spec.TargetDeploymentMemoryThreshold), int32(aihpa.Spec.MinReplicas), int32(aihpa.Spec.MaxReplicas), nil)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -118,9 +118,20 @@ func (r *AIHorizontalPodAutoscalerReconciler) Reconcile(ctx context.Context, req
 	return ctrl.Result{RequeueAfter: time.Second}, nil
 }
 
-func (r *AIHorizontalPodAutoscalerReconciler) scaleDeployment(ctx context.Context, logger logr.Logger, targetDeployment *appsv1.Deployment, podList *corev1.PodList, metricType string, threshold int64, minReplicas int32, maxReplicas int32) error {
+func (r *AIHorizontalPodAutoscalerReconciler) scaleDeployment(ctx context.Context, logger logr.Logger, targetDeployment *appsv1.Deployment, podList *corev1.PodList, metricType string, threshold int64, minReplicas int32, maxReplicas int32, instructReplicas *int32) error {
 	totalUsage := int64(0)
 
+	if instructReplicas != nil && *instructReplicas > 0 {
+		logger.Info("InstructReplicas provided, updating deployment", targetDeployment, "InstructReplicas", *instructReplicas)
+		targetDeployment.Spec.Replicas = instructReplicas
+		err := r.Update(ctx, targetDeployment)
+		if err != nil {
+			logger.Error(err, "Failed to update deployment replicas")
+			return err
+		}
+		logger.Info("Deployment replicas updated successfully", targetDeployment, "NewReplicas", *instructReplicas)
+		return nil
+	}
 	// Query metrics for each pod
 	for _, pod := range podList.Items {
 		metrics, err := metricsClientSet.MetricsV1beta1().PodMetricses(pod.Namespace).Get(ctx, pod.Name, metav1.GetOptions{})
@@ -178,12 +189,13 @@ func (r *AIHorizontalPodAutoscalerReconciler) handleWebhook(w http.ResponseWrite
 
 	// Parse the request body
 	var payload struct {
-		Namespace   string `json:"namespace"`
-		Deployment  string `json:"deployment"`
-		MetricType  string `json:"metricType"` // e.g., "cpu" or "memory"
-		Threshold   int64  `json:"threshold"`
-		MinReplicas int32  `json:"minReplicas"`
-		MaxReplicas int32  `json:"maxReplicas"`
+		Namespace        string `json:"namespace"`
+		Deployment       string `json:"deployment"`
+		MetricType       string `json:"metricType,omitempty"` // e.g., "cpu" or "memory"
+		Threshold        int64  `json:"threshold,omitempty"`
+		MinReplicas      int32  `json:"minReplicas,omitempty"`
+		MaxReplicas      int32  `json:"maxReplicas,omitempty"`
+		InstructReplicas int32  `json:"instructReplicas,omitempty"`
 	}
 	err := json.NewDecoder(req.Body).Decode(&payload)
 	if err != nil {
@@ -209,9 +221,13 @@ func (r *AIHorizontalPodAutoscalerReconciler) handleWebhook(w http.ResponseWrite
 		http.Error(w, "Failed to list pods: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
+	var instructReplicas *int32
+	if payload.InstructReplicas > 0 {
+		instructReplicas = &payload.InstructReplicas
+	}
 
 	// Trigger scaling logic
-	err = r.scaleDeployment(ctx, logger, targetDeployment, podList, payload.MetricType, payload.Threshold, payload.MinReplicas, payload.MaxReplicas)
+	err = r.scaleDeployment(ctx, logger, targetDeployment, podList, payload.MetricType, payload.Threshold, payload.MinReplicas, payload.MaxReplicas, instructReplicas)
 	if err != nil {
 		http.Error(w, "Failed to scale deployment: "+err.Error(), http.StatusInternalServerError)
 		return
