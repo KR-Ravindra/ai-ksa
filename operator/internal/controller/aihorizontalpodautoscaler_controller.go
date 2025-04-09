@@ -78,7 +78,7 @@ type AIHorizontalPodAutoscalerReconciler struct {
 func (r *AIHorizontalPodAutoscalerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
-	// Check if the request is for AIHorizontalPodAutoscaler
+	// Reconciler call for AIHorizontalPodAutoscaler
 	aihpa := &autoscalingv1.AIHorizontalPodAutoscaler{}
 	err := r.Get(ctx, req.NamespacedName, aihpa)
 	if err == nil {
@@ -86,7 +86,7 @@ func (r *AIHorizontalPodAutoscalerReconciler) Reconcile(ctx context.Context, req
 		return r.reconcileAIHorizontalPodAutoscaler(ctx, req)
 	}
 
-	// Check if the request is for ScheduledScaler
+	// Reconciler call for ScheduledScaler
 	scheduledScaler := &autoscalingv1.ScheduledScaler{}
 	err = r.Get(ctx, req.NamespacedName, scheduledScaler)
 	if err == nil {
@@ -94,7 +94,7 @@ func (r *AIHorizontalPodAutoscalerReconciler) Reconcile(ctx context.Context, req
 		return r.reconcileScheduledScaler(ctx, scheduledScaler)
 	}
 
-	// If neither resource is found, return an error
+	// Unknown reconcilation call
 	if errors.IsNotFound(err) {
 		logger.Info("Resource not found. Ignoring since object must be deleted", "Name", req.Name, "Namespace", req.Namespace)
 		return ctrl.Result{}, nil
@@ -110,7 +110,7 @@ func (r *AIHorizontalPodAutoscalerReconciler) reconcileScheduledScaler(ctx conte
 	logger.Info("Reconciling ScheduledScaler", "Name", scheduledScaler.Name, "Namespace", scheduledScaler.Namespace)
 	cronJobName := fmt.Sprintf("%s-scheduler", scheduledScaler.Name)
 
-	// 1. Handle recurring scheduled scaling
+	// Handle recurring scheduled scaling
 	if scheduledScaler.Spec.Schedule != "" && !scheduledScaler.Spec.OneTime {
 		logger.V(1).Info("Recurring ScheduledScaler detected", "Schedule", scheduledScaler.Spec.Schedule, "Duration", scheduledScaler.Spec.Duration)
 
@@ -237,7 +237,7 @@ func (r *AIHorizontalPodAutoscalerReconciler) reconcileScheduledScaler(ctx conte
 		return ctrl.Result{}, nil
 	}
 
-	// 2. Handle one-time scheduled scaling
+	// Handle one-time scheduled scaling
 	if scheduledScaler.Spec.OneTime {
 		logger.Info("One-time ScheduledScaler detected", "StartTime", scheduledScaler.Spec.StartTime)
 

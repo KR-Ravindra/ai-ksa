@@ -13,7 +13,7 @@ curl -X POST http://operator-controller-manager-autoscale-trigger.operator-syste
 ```
 Outside Cluster
 ```
-curl -X POST http://134.199.185.13:32251/trigger -H "Content-Type: application/json" -d '{
+curl -X POST http://134.199.185.13:32522/trigger -H "Content-Type: application/json" -d '{
   "namespace": "default",
   "deployment": "somegix",
   "metricType": "cpu",
