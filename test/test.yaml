@@ -7,5 +7,3 @@ spec:
   targetDeploymentName: nginx # This won't be used in this simple version
   targetDeploymentNamespace: default # This won't be used
   targetDeploymentCPUThreshold: 60 # These won't be used yet
-  minReplicas: 1
-  maxReplicas: 5

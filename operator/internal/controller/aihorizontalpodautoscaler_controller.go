@@ -226,7 +226,7 @@ func (r *AIHorizontalPodAutoscalerReconciler) reconcileAIHorizontalPodAutoscaler
 
 	// 4. Scale based on CPU
 	if aihpa.Spec.TargetDeploymentCPUThreshold != nil {
-		err = r.scaleDeployment(ctx, logger, targetDeployment, podList, "cpu", int64(*aihpa.Spec.TargetDeploymentCPUThreshold),  nil)
+		err = r.scaleDeployment(ctx, logger, targetDeployment, podList, "cpu", int64(*aihpa.Spec.TargetDeploymentCPUThreshold), nil)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -241,7 +241,7 @@ func (r *AIHorizontalPodAutoscalerReconciler) reconcileAIHorizontalPodAutoscaler
 	}
 
 	// 6. Requeue periodically to monitor metrics
-	return ctrl.Result{RequeueAfter: time.Second}, nil
+	return ctrl.Result{RequeueAfter: time.Second * 15}, nil
 }
 
 func (r *AIHorizontalPodAutoscalerReconciler) scaleDeployment(ctx context.Context, logger logr.Logger, targetDeployment *appsv1.Deployment, podList *corev1.PodList, metricType string, threshold int64, instructReplicas *int32) error {
@@ -284,25 +284,25 @@ func (r *AIHorizontalPodAutoscalerReconciler) scaleDeployment(ctx context.Contex
 	logger.V(1).Info("Metric Usage", "MetricType", metricType, "AverageUsage", averageUsage, "Threshold", threshold)
 
 	// Scale logic
-    currentReplicas := *targetDeployment.Spec.Replicas
-    var newReplicas int32
+	currentReplicas := *targetDeployment.Spec.Replicas
+	var newReplicas int32
 
-    if averageUsage > threshold {
-        newReplicas = currentReplicas + 1
-    } else if averageUsage < threshold && currentReplicas > 1 {
-        newReplicas = currentReplicas - 1
-    } else {
-        // No scaling needed
-        return nil
-    }
+	if averageUsage > threshold {
+		newReplicas = currentReplicas + 1
+	} else if averageUsage < threshold && currentReplicas > 1 {
+		newReplicas = currentReplicas - 1
+	} else {
+		// No scaling needed
+		return nil
+	}
 	targetDeployment.Spec.Replicas = &newReplicas
-    err := r.Update(ctx, targetDeployment)
-    if err != nil {
-        logger.Error(err, "Failed to update deployment replicas")
-        return err
-    }
-    logger.Info("Scaled deployment", "NewReplicas", newReplicas)
-    return nil
+	err := r.Update(ctx, targetDeployment)
+	if err != nil {
+		logger.Error(err, "Failed to update deployment replicas")
+		return err
+	}
+	logger.Info("Scaled deployment", "NewReplicas", newReplicas)
+	return nil
 
 }
 
@@ -332,7 +332,6 @@ func (r *AIHorizontalPodAutoscalerReconciler) handleWebhook(w http.ResponseWrite
 	if payload.Threshold == 0 {
 		payload.Threshold = 80 // Default threshold
 	}
-
 
 	// Fetch the target deployment
 	ctx := context.Background()
