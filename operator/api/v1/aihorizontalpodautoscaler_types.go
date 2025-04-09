@@ -30,8 +30,8 @@ type AIHorizontalPodAutoscalerSpec struct {
 	TargetDeploymentCPUThreshold    *int   `json:"targetDeploymentCPUThreshold,omitempty"`    // New field
 	TargetDeploymentMemoryThreshold *int   `json:"targetDeploymentMemoryThreshold,omitempty"` // Added memory threshold field
 	ExternalMetricEndpoint          string `json:"externalMetricEndpoint,omitempty"`
-	MinReplicas                     int    `json:"minReplicas"`
-	MaxReplicas                     int    `json:"maxReplicas"`
+	// MinReplicas                     int    `json:"minReplicas"`
+	// MaxReplicas                     int    `json:"maxReplicas"`
 }
 
 // AIHorizontalPodAutoscalerStatus defines the observed state of AIHorizontalPodAutoscaler

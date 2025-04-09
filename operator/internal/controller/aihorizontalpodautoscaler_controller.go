@@ -16,13 +16,18 @@ import (
 	"k8s.io/client-go/rest"
 	metricsv "k8s.io/metrics/pkg/client/clientset/versioned"
 
+	"fmt"
+	"reflect"
+
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/go-logr/logr"
 	autoscalingv1 "github.com/kr-ravindra/ai-ksa/api/v1"
+	batchv1 "k8s.io/api/batch/v1"
 )
 
 var (
@@ -52,6 +57,9 @@ func init() {
 
 // +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;update
+// +kubebuilder:rbac:groups=batch,resources=cronjobs,verbs=get;list;watch;create;update;delete
+// +kubebuilder:rbac:groups=batch,resources=cronjobs/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=batch,resources=cronjobs/finalizers,verbs=update
 // +kubebuilder:rbac:groups=metrics.k8s.io,resources=pods,verbs=get;list;watch
 // +kubebuilder:rbac:groups=autoscaling.cortex.me,resources=aihorizontalpodautoscalers,verbs=get;list;watch
 // +kubebuilder:rbac:groups=autoscaling.cortex.me,resources=aihorizontalpodautoscalers/status,verbs=get;update;patch
@@ -74,7 +82,7 @@ func (r *AIHorizontalPodAutoscalerReconciler) Reconcile(ctx context.Context, req
 	aihpa := &autoscalingv1.AIHorizontalPodAutoscaler{}
 	err := r.Get(ctx, req.NamespacedName, aihpa)
 	if err == nil {
-		logger.Info("Reconciling AIHorizontalPodAutoscaler", "Name", req.Name, "Namespace", req.Namespace)
+		logger.V(1).Info("Reconciling AIHorizontalPodAutoscaler", "Name", req.Name, "Namespace", req.Namespace)
 		return r.reconcileAIHorizontalPodAutoscaler(ctx, req)
 	}
 
@@ -82,7 +90,7 @@ func (r *AIHorizontalPodAutoscalerReconciler) Reconcile(ctx context.Context, req
 	scheduledScaler := &autoscalingv1.ScheduledScaler{}
 	err = r.Get(ctx, req.NamespacedName, scheduledScaler)
 	if err == nil {
-		logger.Info("Reconciling ScheduledScaler", "Name", req.Name, "Namespace", req.Namespace)
+		logger.V(1).Info("Reconciling ScheduledScaler", "Name", req.Name, "Namespace", req.Namespace)
 		return r.reconcileScheduledScaler(ctx, scheduledScaler)
 	}
 
@@ -98,35 +106,87 @@ func (r *AIHorizontalPodAutoscalerReconciler) Reconcile(ctx context.Context, req
 
 func (r *AIHorizontalPodAutoscalerReconciler) reconcileScheduledScaler(ctx context.Context, scheduledScaler *autoscalingv1.ScheduledScaler) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
+	cronJobName := fmt.Sprintf("%s-scheduler", scheduledScaler.Name)
 
-	// Parse the cron schedule
-	schedule := scheduledScaler.Spec.Schedule
-	replicas := scheduledScaler.Spec.Replicas
-	targetDeploymentName := scheduledScaler.Spec.TargetDeploymentName
-	targetDeploymentNamespace := scheduledScaler.Spec.TargetDeploymentNamespace
+	logger.Info("Reconciling ScheduledScaler with CronJob", "Name", scheduledScaler.Name, "Namespace", scheduledScaler.Namespace, "Schedule", scheduledScaler.Spec.Schedule, "Replicas", scheduledScaler.Spec.Replicas, "CronJobName", cronJobName)
 
-	logger.Info("Reconciling ScheduledScaler", "Schedule", schedule, "Replicas", replicas)
-
-	// Fetch the target deployment
-	targetDeployment := &appsv1.Deployment{}
-	err := r.Get(ctx, types.NamespacedName{Name: targetDeploymentName, Namespace: targetDeploymentNamespace}, targetDeployment)
-	if err != nil {
-		logger.Error(err, "Failed to fetch target deployment")
+	// 1. Define the desired CronJob
+	desiredCronJob := &batchv1.CronJob{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cronJobName,
+			Namespace: scheduledScaler.Namespace,
+			Labels: map[string]string{
+				"app":        "ai-ksa-scheduled-scaler",
+				"scheduler":  scheduledScaler.Name,
+				"controller": "aihorizontalpodautoscaler-controller", // Static identifier for the controller
+			},
+		},
+		Spec: batchv1.CronJobSpec{
+			Schedule: scheduledScaler.Spec.Schedule,
+			JobTemplate: batchv1.JobTemplateSpec{
+				Spec: batchv1.JobSpec{
+					Template: corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{
+							RestartPolicy: corev1.RestartPolicyNever,
+							Containers: []corev1.Container{
+								{
+									Name:    "scaler",
+									Image:   "curlimages/curl:latest", // A simple image with curl
+									Command: []string{"/bin/sh", "-c"},
+									Args: []string{
+										fmt.Sprintf(`
+											curl -X POST -H "Content-Type: application/json" -d '
+											{
+												"namespace": "%s",
+												"deployment": "%s",
+												"metricType": "overwrite",
+												"instructReplicas": %d
+											}
+											' http://operator-controller-manager-autoscale-trigger.operator-system.svc.cluster.local:8080/trigger
+										`, scheduledScaler.Namespace, scheduledScaler.Spec.TargetDeploymentName, scheduledScaler.Spec.Replicas),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	// Set the owner reference so the CronJob is deleted when the ScheduledScaler is deleted
+	if err := controllerutil.SetControllerReference(scheduledScaler, desiredCronJob, r.Scheme); err != nil {
+		logger.Error(err, "Failed to set controller reference for CronJob")
 		return ctrl.Result{}, err
 	}
 
-	// Update the deployment's replicas
-	targetDeployment.Spec.Replicas = &replicas
-	err = r.Update(ctx, targetDeployment)
+	// 2. Check if the CronJob already exists
+	existingCronJob := &batchv1.CronJob{}
+	err := r.Get(ctx, types.NamespacedName{Name: cronJobName, Namespace: scheduledScaler.Namespace}, existingCronJob)
 	if err != nil {
-		logger.Error(err, "Failed to update deployment replicas")
+		if errors.IsNotFound(err) {
+			logger.Info("Creating CronJob for ScheduledScaler", "CronJobName", cronJobName)
+			if err := r.Create(ctx, desiredCronJob); err != nil {
+				logger.Error(err, "Failed to create CronJob")
+				return ctrl.Result{}, err
+			}
+			return ctrl.Result{}, nil // Successfully created
+		}
+		logger.Error(err, "Failed to get CronJob")
 		return ctrl.Result{}, err
 	}
 
-	logger.Info("Updated deployment replicas based on schedule", "Deployment", targetDeploymentName, "Replicas", replicas)
+	// 3. If the CronJob exists, update it if necessary
+	if !reflect.DeepEqual(existingCronJob.Spec, desiredCronJob.Spec) {
+		logger.Info("Updating CronJob for ScheduledScaler", "CronJobName", cronJobName)
+		existingCronJob.Spec = desiredCronJob.Spec
+		if err := r.Update(ctx, existingCronJob); err != nil {
+			logger.Error(err, "Failed to update CronJob")
+			return ctrl.Result{}, err
+		}
+	}
 
-	// Requeue based on the cron schedule (you can use a cron library for this)
-	return ctrl.Result{RequeueAfter: time.Minute}, nil
+	logger.V(1).Info("CronJob reconciled", "CronJobName", cronJobName)
+	return ctrl.Result{}, nil
 }
 
 func (r *AIHorizontalPodAutoscalerReconciler) reconcileAIHorizontalPodAutoscaler(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -166,7 +226,7 @@ func (r *AIHorizontalPodAutoscalerReconciler) reconcileAIHorizontalPodAutoscaler
 
 	// 4. Scale based on CPU
 	if aihpa.Spec.TargetDeploymentCPUThreshold != nil {
-		err = r.scaleDeployment(ctx, logger, targetDeployment, podList, "cpu", int64(*aihpa.Spec.TargetDeploymentCPUThreshold), int32(aihpa.Spec.MinReplicas), int32(aihpa.Spec.MaxReplicas), nil)
+		err = r.scaleDeployment(ctx, logger, targetDeployment, podList, "cpu", int64(*aihpa.Spec.TargetDeploymentCPUThreshold),  nil)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -174,7 +234,7 @@ func (r *AIHorizontalPodAutoscalerReconciler) reconcileAIHorizontalPodAutoscaler
 
 	// 5. Scale based on Memory (if the field is provided)
 	if aihpa.Spec.TargetDeploymentMemoryThreshold != nil {
-		err = r.scaleDeployment(ctx, logger, targetDeployment, podList, "memory", int64(*aihpa.Spec.TargetDeploymentMemoryThreshold), int32(aihpa.Spec.MinReplicas), int32(aihpa.Spec.MaxReplicas), nil)
+		err = r.scaleDeployment(ctx, logger, targetDeployment, podList, "memory", int64(*aihpa.Spec.TargetDeploymentMemoryThreshold), nil)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -184,7 +244,7 @@ func (r *AIHorizontalPodAutoscalerReconciler) reconcileAIHorizontalPodAutoscaler
 	return ctrl.Result{RequeueAfter: time.Second}, nil
 }
 
-func (r *AIHorizontalPodAutoscalerReconciler) scaleDeployment(ctx context.Context, logger logr.Logger, targetDeployment *appsv1.Deployment, podList *corev1.PodList, metricType string, threshold int64, minReplicas int32, maxReplicas int32, instructReplicas *int32) error {
+func (r *AIHorizontalPodAutoscalerReconciler) scaleDeployment(ctx context.Context, logger logr.Logger, targetDeployment *appsv1.Deployment, podList *corev1.PodList, metricType string, threshold int64, instructReplicas *int32) error {
 	totalUsage := int64(0)
 	if metricType == "overwrite" {
 		if instructReplicas != nil && *instructReplicas > 0 {
@@ -224,28 +284,26 @@ func (r *AIHorizontalPodAutoscalerReconciler) scaleDeployment(ctx context.Contex
 	logger.V(1).Info("Metric Usage", "MetricType", metricType, "AverageUsage", averageUsage, "Threshold", threshold)
 
 	// Scale logic
-	currentReplicas := *targetDeployment.Spec.Replicas
-	if averageUsage > threshold && currentReplicas < maxReplicas {
-		newReplicas := currentReplicas + 1
-		targetDeployment.Spec.Replicas = &newReplicas
-		err := r.Update(ctx, targetDeployment)
-		if err != nil {
-			logger.Error(err, "Failed to scale up target deployment")
-			return err
-		}
-		logger.Info("Scaled up target deployment", "NewReplicas", newReplicas)
-	} else if averageUsage < threshold && currentReplicas > minReplicas {
-		newReplicas := currentReplicas - 1
-		targetDeployment.Spec.Replicas = &newReplicas
-		err := r.Update(ctx, targetDeployment)
-		if err != nil {
-			logger.Error(err, "Failed to scale down target deployment")
-			return err
-		}
-		logger.Info("Scaled down target deployment", "NewReplicas", newReplicas)
-	}
+    currentReplicas := *targetDeployment.Spec.Replicas
+    var newReplicas int32
 
-	return nil
+    if averageUsage > threshold {
+        newReplicas = currentReplicas + 1
+    } else if averageUsage < threshold && currentReplicas > 1 {
+        newReplicas = currentReplicas - 1
+    } else {
+        // No scaling needed
+        return nil
+    }
+	targetDeployment.Spec.Replicas = &newReplicas
+    err := r.Update(ctx, targetDeployment)
+    if err != nil {
+        logger.Error(err, "Failed to update deployment replicas")
+        return err
+    }
+    logger.Info("Scaled deployment", "NewReplicas", newReplicas)
+    return nil
+
 }
 
 func (r *AIHorizontalPodAutoscalerReconciler) handleWebhook(w http.ResponseWriter, req *http.Request) {
@@ -260,8 +318,6 @@ func (r *AIHorizontalPodAutoscalerReconciler) handleWebhook(w http.ResponseWrite
 		Deployment       string `json:"deployment"`
 		MetricType       string `json:"metricType"` // e.g., "cpu" or "memory"
 		Threshold        int64  `json:"threshold,omitempty"`
-		MinReplicas      int32  `json:"minReplicas,omitempty"`
-		MaxReplicas      int32  `json:"maxReplicas,omitempty"`
 		InstructReplicas int32  `json:"instructReplicas,omitempty"`
 	}
 	err := json.NewDecoder(req.Body).Decode(&payload)
@@ -276,12 +332,7 @@ func (r *AIHorizontalPodAutoscalerReconciler) handleWebhook(w http.ResponseWrite
 	if payload.Threshold == 0 {
 		payload.Threshold = 80 // Default threshold
 	}
-	if payload.MinReplicas == 0 {
-		payload.MinReplicas = 1 // Default minimum replicas
-	}
-	if payload.MaxReplicas == 0 {
-		payload.MaxReplicas = 10 // Default maximum replicas
-	}
+
 
 	// Fetch the target deployment
 	ctx := context.Background()
@@ -308,7 +359,7 @@ func (r *AIHorizontalPodAutoscalerReconciler) handleWebhook(w http.ResponseWrite
 		}
 	}
 	// Trigger scaling logic
-	err = r.scaleDeployment(ctx, logger, targetDeployment, podList, payload.MetricType, payload.Threshold, payload.MinReplicas, payload.MaxReplicas, instructReplicas)
+	err = r.scaleDeployment(ctx, logger, targetDeployment, podList, payload.MetricType, payload.Threshold, instructReplicas)
 	if err != nil {
 		http.Error(w, "Failed to scale deployment: "+err.Error(), http.StatusInternalServerError)
 		return
