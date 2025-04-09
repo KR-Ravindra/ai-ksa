@@ -12,7 +12,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	metricsv "k8s.io/metrics/pkg/client/clientset/versioned"
@@ -51,7 +50,6 @@ func init() {
 }
 
 // +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch
-// +kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;update
 // +kubebuilder:rbac:groups=metrics.k8s.io,resources=pods,verbs=get;list;watch
 // +kubebuilder:rbac:groups=autoscaling.cortex.me,resources=aihorizontalpodautoscalers,verbs=get;list;watch
@@ -68,14 +66,9 @@ type AIHorizontalPodAutoscalerReconciler struct {
 func (r *AIHorizontalPodAutoscalerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
-	err := r.ensureWebhookService(ctx, "operator-system")
-	if err != nil {
-		logger.Error(err, "Failed to ensure webhook service")
-		return ctrl.Result{}, err
-	}
 	// 1. Fetch the AIHorizontalPodAutoscaler instance
 	aihpa := &autoscalingv1.AIHorizontalPodAutoscaler{}
-	err = r.Get(ctx, req.NamespacedName, aihpa)
+	err := r.Get(ctx, req.NamespacedName, aihpa)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			logger.Info("AIHorizontalPodAutoscaler resource not found. Ignoring since object must be absent")
@@ -150,7 +143,7 @@ func (r *AIHorizontalPodAutoscalerReconciler) scaleDeployment(ctx context.Contex
 
 	// Calculate average usage
 	averageUsage := totalUsage / int64(len(podList.Items))
-	logger.Info("Metric Usage", "MetricType", metricType, "AverageUsage", averageUsage, "Threshold", threshold)
+	logger.V(1).Info("Metric Usage", "MetricType", metricType, "AverageUsage", averageUsage, "Threshold", threshold)
 
 	// Scale logic
 	currentReplicas := *targetDeployment.Spec.Replicas
@@ -200,7 +193,9 @@ func (r *AIHorizontalPodAutoscalerReconciler) handleWebhook(w http.ResponseWrite
 
 	// Fetch the target deployment
 	ctx := context.Background()
+	logger := log.FromContext(ctx)
 	targetDeployment := &appsv1.Deployment{}
+	logger.Info("Received webhook payload", "Payload", payload)
 	err = r.Get(ctx, types.NamespacedName{Name: payload.Deployment, Namespace: payload.Namespace}, targetDeployment)
 	if err != nil {
 		http.Error(w, "Failed to fetch target deployment: "+err.Error(), http.StatusInternalServerError)
@@ -216,7 +211,6 @@ func (r *AIHorizontalPodAutoscalerReconciler) handleWebhook(w http.ResponseWrite
 	}
 
 	// Trigger scaling logic
-	logger := log.FromContext(ctx)
 	err = r.scaleDeployment(ctx, logger, targetDeployment, podList, payload.MetricType, payload.Threshold, payload.MinReplicas, payload.MaxReplicas)
 	if err != nil {
 		http.Error(w, "Failed to scale deployment: "+err.Error(), http.StatusInternalServerError)
@@ -238,56 +232,6 @@ func (r *AIHorizontalPodAutoscalerReconciler) startWebhookServer() {
 	if err != nil {
 		log.Error(err, "Failed to start webhook server")
 	}
-}
-
-func (r *AIHorizontalPodAutoscalerReconciler) ensureWebhookService(ctx context.Context, namespace string) error {
-	logger := log.FromContext(ctx)
-
-	// Define the Service
-	service := &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "ai-horizontal-pod-autoscaler-webhook",
-			Namespace: namespace,
-			Labels: map[string]string{
-				"app": "ai-horizontal-pod-autoscaler", // FIX THIS 
-			},
-		},
-		Spec: corev1.ServiceSpec{
-			Selector: map[string]string{
-				"app": "ai-horizontal-pod-autoscaler",
-			},
-			Ports: []corev1.ServicePort{
-				{
-					Protocol:   corev1.ProtocolTCP,
-					Port:       8080,                 // External port
-					TargetPort: intstr.FromInt(8080), // Port exposed by the operator
-				},
-			},
-		},
-	}
-
-	// Check if the Service already exists
-	existingService := &corev1.Service{}
-	err := r.Get(ctx, types.NamespacedName{Name: service.Name, Namespace: service.Namespace}, existingService)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			// Create the Service if it does not exist
-			logger.Info("Creating webhook service", "Service.Name", service.Name, "Service.Namespace", service.Namespace)
-			err = r.Create(ctx, service)
-			if err != nil {
-				logger.Error(err, "Failed to create webhook service")
-				return err
-			}
-			logger.Info("Webhook service created successfully")
-		} else {
-			logger.Error(err, "Failed to get webhook service")
-			return err
-		}
-	} else {
-		logger.Info("Webhook service already exists", "Service.Name", service.Name, "Service.Namespace", service.Namespace)
-	}
-
-	return nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
