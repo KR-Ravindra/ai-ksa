@@ -20,4 +20,12 @@ resources:
   kind: AIHorizontalPodAutoscaler
   path: github.com/kr-ravindra/ai-ksa/api/v1
   version: v1
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: cortex.me
+  group: autoscaling
+  kind: ScheduledScaler
+  path: github.com/kr-ravindra/ai-ksa/api/v1
+  version: v1
 version: "3"

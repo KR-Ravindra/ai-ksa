@@ -18,6 +18,7 @@ import (
 
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/go-logr/logr"
@@ -64,6 +65,68 @@ type AIHorizontalPodAutoscalerReconciler struct {
 
 // Reconcile function
 func (r *AIHorizontalPodAutoscalerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	logger := log.FromContext(ctx)
+
+	// Check if the request is for AIHorizontalPodAutoscaler
+	aihpa := &autoscalingv1.AIHorizontalPodAutoscaler{}
+	err := r.Get(ctx, req.NamespacedName, aihpa)
+	if err == nil {
+		logger.Info("Reconciling AIHorizontalPodAutoscaler", "Name", req.Name, "Namespace", req.Namespace)
+		return r.reconcileAIHorizontalPodAutoscaler(ctx, req)
+	}
+
+	// Check if the request is for ScheduledScaler
+	scheduledScaler := &autoscalingv1.ScheduledScaler{}
+	err = r.Get(ctx, req.NamespacedName, scheduledScaler)
+	if err == nil {
+		logger.Info("Reconciling ScheduledScaler", "Name", req.Name, "Namespace", req.Namespace)
+		return r.reconcileScheduledScaler(ctx, scheduledScaler)
+	}
+
+	// If neither resource is found, return an error
+	if errors.IsNotFound(err) {
+		logger.Info("Resource not found. Ignoring since object must be deleted", "Name", req.Name, "Namespace", req.Namespace)
+		return ctrl.Result{}, nil
+	}
+
+	logger.Error(err, "Failed to get resource")
+	return ctrl.Result{}, err
+}
+
+func (r *AIHorizontalPodAutoscalerReconciler) reconcileScheduledScaler(ctx context.Context, scheduledScaler *autoscalingv1.ScheduledScaler) (ctrl.Result, error) {
+	logger := log.FromContext(ctx)
+
+	// Parse the cron schedule
+	schedule := scheduledScaler.Spec.Schedule
+	replicas := scheduledScaler.Spec.Replicas
+	targetDeploymentName := scheduledScaler.Spec.TargetDeploymentName
+	targetDeploymentNamespace := scheduledScaler.Spec.TargetDeploymentNamespace
+
+	logger.Info("Reconciling ScheduledScaler", "Schedule", schedule, "Replicas", replicas)
+
+	// Fetch the target deployment
+	targetDeployment := &appsv1.Deployment{}
+	err := r.Get(ctx, types.NamespacedName{Name: targetDeploymentName, Namespace: targetDeploymentNamespace}, targetDeployment)
+	if err != nil {
+		logger.Error(err, "Failed to fetch target deployment")
+		return ctrl.Result{}, err
+	}
+
+	// Update the deployment's replicas
+	targetDeployment.Spec.Replicas = &replicas
+	err = r.Update(ctx, targetDeployment)
+	if err != nil {
+		logger.Error(err, "Failed to update deployment replicas")
+		return ctrl.Result{}, err
+	}
+
+	logger.Info("Updated deployment replicas based on schedule", "Deployment", targetDeploymentName, "Replicas", replicas)
+
+	// Requeue based on the cron schedule (you can use a cron library for this)
+	return ctrl.Result{RequeueAfter: time.Minute}, nil
+}
+
+func (r *AIHorizontalPodAutoscalerReconciler) reconcileAIHorizontalPodAutoscaler(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
 	// 1. Fetch the AIHorizontalPodAutoscaler instance
@@ -273,5 +336,6 @@ func (r *AIHorizontalPodAutoscalerReconciler) SetupWithManager(mgr ctrl.Manager)
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&autoscalingv1.AIHorizontalPodAutoscaler{}).
 		Owns(&appsv1.Deployment{}).
+		Watches(&autoscalingv1.ScheduledScaler{}, &handler.EnqueueRequestForObject{}).
 		Complete(r)
 }

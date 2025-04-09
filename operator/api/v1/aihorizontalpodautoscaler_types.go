@@ -25,14 +25,14 @@ import (
 
 // AIHorizontalPodAutoscalerSpec defines the desired state of AIHorizontalPodAutoscaler
 type AIHorizontalPodAutoscalerSpec struct {
-	TargetDeploymentName      string `json:"targetDeploymentName"`
-	TargetDeploymentNamespace string `json:"targetDeploymentNamespace"`
-	TargetDeploymentCPUThreshold *int    `json:"targetDeploymentCPUThreshold,omitempty"` // New field
-	TargetDeploymentMemoryThreshold *int `json:"targetDeploymentMemoryThreshold,omitempty"` // Added memory threshold field
-	ExternalMetricEndpoint 	string `json:"externalMetricEndpoint,omitempty"`
-	MinReplicas               int    `json:"minReplicas"`
-	MaxReplicas               int    `json:"maxReplicas"`
-  }
+	TargetDeploymentName            string `json:"targetDeploymentName"`
+	TargetDeploymentNamespace       string `json:"targetDeploymentNamespace"`
+	TargetDeploymentCPUThreshold    *int   `json:"targetDeploymentCPUThreshold,omitempty"`    // New field
+	TargetDeploymentMemoryThreshold *int   `json:"targetDeploymentMemoryThreshold,omitempty"` // Added memory threshold field
+	ExternalMetricEndpoint          string `json:"externalMetricEndpoint,omitempty"`
+	MinReplicas                     int    `json:"minReplicas"`
+	MaxReplicas                     int    `json:"maxReplicas"`
+}
 
 // AIHorizontalPodAutoscalerStatus defines the observed state of AIHorizontalPodAutoscaler
 type AIHorizontalPodAutoscalerStatus struct {

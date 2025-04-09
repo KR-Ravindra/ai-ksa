@@ -4,21 +4,20 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.1
-  name: aihorizontalpodautoscalers.autoscaling.cortex.me
+  name: scheduledscalers.autoscaling.cortex.me
 spec:
   group: autoscaling.cortex.me
   names:
-    kind: AIHorizontalPodAutoscaler
-    listKind: AIHorizontalPodAutoscalerList
-    plural: aihorizontalpodautoscalers
-    singular: aihorizontalpodautoscaler
+    kind: ScheduledScaler
+    listKind: ScheduledScalerList
+    plural: scheduledscalers
+    singular: scheduledscaler
   scope: Namespaced
   versions:
   - name: v1
     schema:
       openAPIV3Schema:
-        description: AIHorizontalPodAutoscaler is the Schema for the aihorizontalpodautoscalers
-          API
+        description: ScheduledScaler is the Schema for the scheduledscalers API
         properties:
           apiVersion:
             description: |-
@@ -38,32 +37,29 @@ spec:
           metadata:
             type: object
           spec:
-            description: AIHorizontalPodAutoscalerSpec defines the desired state of
-              AIHorizontalPodAutoscaler
+            description: ScheduledScalerSpec defines the desired state of ScheduledScaler
             properties:
-              externalMetricEndpoint:
+              replicas:
+                format: int32
+                type: integer
+              schedule:
                 type: string
-              maxReplicas:
-                type: integer
-              minReplicas:
-                type: integer
-              targetDeploymentCPUThreshold:
-                type: integer
-              targetDeploymentMemoryThreshold:
-                type: integer
               targetDeploymentName:
                 type: string
               targetDeploymentNamespace:
                 type: string
             required:
-            - maxReplicas
-            - minReplicas
+            - replicas
+            - schedule
             - targetDeploymentName
             - targetDeploymentNamespace
             type: object
           status:
-            description: AIHorizontalPodAutoscalerStatus defines the observed state
-              of AIHorizontalPodAutoscaler
+            description: ScheduledScalerStatus defines the observed state of ScheduledScaler
+            properties:
+              lastScheduleTime:
+                format: date-time
+                type: string
             type: object
         type: object
     served: true
