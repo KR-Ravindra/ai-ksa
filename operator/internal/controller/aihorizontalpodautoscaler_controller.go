@@ -120,17 +120,18 @@ func (r *AIHorizontalPodAutoscalerReconciler) Reconcile(ctx context.Context, req
 
 func (r *AIHorizontalPodAutoscalerReconciler) scaleDeployment(ctx context.Context, logger logr.Logger, targetDeployment *appsv1.Deployment, podList *corev1.PodList, metricType string, threshold int64, minReplicas int32, maxReplicas int32, instructReplicas *int32) error {
 	totalUsage := int64(0)
-
-	if instructReplicas != nil && *instructReplicas > 0 {
-		logger.Info("InstructReplicas provided, updating deployment", targetDeployment, "InstructReplicas", *instructReplicas)
-		targetDeployment.Spec.Replicas = instructReplicas
-		err := r.Update(ctx, targetDeployment)
-		if err != nil {
-			logger.Error(err, "Failed to update deployment replicas")
-			return err
+	if metricType == "overwrite" {
+		if instructReplicas != nil && *instructReplicas > 0 {
+			logger.Info("InstructReplicas provided, updating deployment", targetDeployment, "InstructReplicas", *instructReplicas)
+			targetDeployment.Spec.Replicas = instructReplicas
+			err := r.Update(ctx, targetDeployment)
+			if err != nil {
+				logger.Error(err, "Failed to update deployment replicas")
+				return err
+			}
+			logger.Info("Deployment replicas updated successfully", targetDeployment, "NewReplicas", *instructReplicas)
+			return nil
 		}
-		logger.Info("Deployment replicas updated successfully", targetDeployment, "NewReplicas", *instructReplicas)
-		return nil
 	}
 	// Query metrics for each pod
 	for _, pod := range podList.Items {
@@ -191,7 +192,7 @@ func (r *AIHorizontalPodAutoscalerReconciler) handleWebhook(w http.ResponseWrite
 	var payload struct {
 		Namespace        string `json:"namespace"`
 		Deployment       string `json:"deployment"`
-		MetricType       string `json:"metricType,omitempty"` // e.g., "cpu" or "memory"
+		MetricType       string `json:"metricType` // e.g., "cpu" or "memory"
 		Threshold        int64  `json:"threshold,omitempty"`
 		MinReplicas      int32  `json:"minReplicas,omitempty"`
 		MaxReplicas      int32  `json:"maxReplicas,omitempty"`
@@ -202,6 +203,19 @@ func (r *AIHorizontalPodAutoscalerReconciler) handleWebhook(w http.ResponseWrite
 		http.Error(w, "Failed to parse request body", http.StatusBadRequest)
 		return
 	}
+
+	if payload.MetricType == "" {
+        payload.MetricType = "cpu" // Default to "cpu"
+    }
+    if payload.Threshold == 0 {
+        payload.Threshold = 80 // Default threshold
+    }
+    if payload.MinReplicas == 0 {
+        payload.MinReplicas = 1 // Default minimum replicas
+    }
+    if payload.MaxReplicas == 0 {
+        payload.MaxReplicas = 10 // Default maximum replicas
+    }
 
 	// Fetch the target deployment
 	ctx := context.Background()
@@ -222,10 +236,11 @@ func (r *AIHorizontalPodAutoscalerReconciler) handleWebhook(w http.ResponseWrite
 		return
 	}
 	var instructReplicas *int32
-	if payload.InstructReplicas > 0 {
-		instructReplicas = &payload.InstructReplicas
+	if payload.MetricType == "overwrite" {
+		if payload.InstructReplicas > 0 {
+			instructReplicas = &payload.InstructReplicas
+		}
 	}
-
 	// Trigger scaling logic
 	err = r.scaleDeployment(ctx, logger, targetDeployment, podList, payload.MetricType, payload.Threshold, payload.MinReplicas, payload.MaxReplicas, instructReplicas)
 	if err != nil {
