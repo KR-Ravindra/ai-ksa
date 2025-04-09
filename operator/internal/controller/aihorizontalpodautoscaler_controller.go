@@ -122,14 +122,14 @@ func (r *AIHorizontalPodAutoscalerReconciler) scaleDeployment(ctx context.Contex
 	totalUsage := int64(0)
 	if metricType == "overwrite" {
 		if instructReplicas != nil && *instructReplicas > 0 {
-			logger.Info("InstructReplicas provided, updating deployment", targetDeployment, "InstructReplicas", *instructReplicas)
+			logger.Info("InstructReplicas provided, updating deployment", "Deployment", targetDeployment, "InstructReplicas", *instructReplicas)
 			targetDeployment.Spec.Replicas = instructReplicas
 			err := r.Update(ctx, targetDeployment)
 			if err != nil {
 				logger.Error(err, "Failed to update deployment replicas")
 				return err
 			}
-			logger.Info("Deployment replicas updated successfully", targetDeployment, "NewReplicas", *instructReplicas)
+			logger.Info("Scaled deployment based on instruct replicas", "NewReplicas", *instructReplicas)
 			return nil
 		}
 	}
@@ -192,7 +192,7 @@ func (r *AIHorizontalPodAutoscalerReconciler) handleWebhook(w http.ResponseWrite
 	var payload struct {
 		Namespace        string `json:"namespace"`
 		Deployment       string `json:"deployment"`
-		MetricType       string `json:"metricType` // e.g., "cpu" or "memory"
+		MetricType       string `json:"metricType"` // e.g., "cpu" or "memory"
 		Threshold        int64  `json:"threshold,omitempty"`
 		MinReplicas      int32  `json:"minReplicas,omitempty"`
 		MaxReplicas      int32  `json:"maxReplicas,omitempty"`
@@ -205,17 +205,17 @@ func (r *AIHorizontalPodAutoscalerReconciler) handleWebhook(w http.ResponseWrite
 	}
 
 	if payload.MetricType == "" {
-        payload.MetricType = "cpu" // Default to "cpu"
-    }
-    if payload.Threshold == 0 {
-        payload.Threshold = 80 // Default threshold
-    }
-    if payload.MinReplicas == 0 {
-        payload.MinReplicas = 1 // Default minimum replicas
-    }
-    if payload.MaxReplicas == 0 {
-        payload.MaxReplicas = 10 // Default maximum replicas
-    }
+		payload.MetricType = "cpu" // Default to "cpu"
+	}
+	if payload.Threshold == 0 {
+		payload.Threshold = 80 // Default threshold
+	}
+	if payload.MinReplicas == 0 {
+		payload.MinReplicas = 1 // Default minimum replicas
+	}
+	if payload.MaxReplicas == 0 {
+		payload.MaxReplicas = 10 // Default maximum replicas
+	}
 
 	// Fetch the target deployment
 	ctx := context.Background()
