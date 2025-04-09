@@ -56,6 +56,9 @@ func init() {
 // +kubebuilder:rbac:groups=autoscaling.cortex.me,resources=aihorizontalpodautoscalers,verbs=get;list;watch
 // +kubebuilder:rbac:groups=autoscaling.cortex.me,resources=aihorizontalpodautoscalers/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=autoscaling.cortex.me,resources=aihorizontalpodautoscalers/finalizers,verbs=update
+// +kubebuilder:rbac:groups=autoscaling.cortex.me,resources=scheduledscalers,verbs=get;list;watch
+// +kubebuilder:rbac:groups=autoscaling.cortex.me,resources=scheduledscalers/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=autoscaling.cortex.me,resources=scheduledscalers/finalizers,verbs=update
 
 // AIHorizontalPodAutoscalerReconciler reconciles a AIHorizontalPodAutoscaler object
 type AIHorizontalPodAutoscalerReconciler struct {
