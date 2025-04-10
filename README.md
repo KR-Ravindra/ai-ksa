@@ -30,6 +30,8 @@ AI-KSA is focused on building an AI enabled Kubernetes Scaling Agent to help wit
 
 - [ ] AI Agent with a progressive knowledge base for identifying long term patterns
 
+- :interrobang: Integration with MCP Chat based AI Engine for human + AI decision making for pod autoscaling
+
 ## Comparision 
 
 A comparision table is given below, so as to compare with existing best performing autoscalers solving horizantal pod autoscaling in kubernetes.
