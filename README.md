@@ -38,7 +38,7 @@ A comparision table is given below, so as to compare with existing best performi
 | ----------- | ----------- | ----------- | ----------- | ----------- | ----------- | ----------- | ----------- | ---------- | ---------- |
 | KEDA ![](./documentation/keda-logo.png) | :white_check_mark: | :x: | :white_check_mark: (limited) | :white_check_mark: | :x: | :x: | :white_check_mark: | :white_check_mark: (limited) | Medium |
 | Kubernetes HPA ![](./documentation/hpa.jpg) | :white_check_mark: | :x: | :x: | :white_check_mark: (beta, needs translation) | :x: | :x: | :x: |  :x: | Very Easy |
-| AI-KSA | :white_check_mark: | :white_check_mark: | :white_check_mark: (Need to extend) | :white_check_mark: | :white_check_mark: (4 AI models) | :white_check_mark: | :white_check_mark: | :white_check_mark: | Very Easy |
+| AI-KSA | :white_check_mark: | :white_check_mark: | :white_check_mark: (Need to extend) | :white_check_mark: | :white_check_mark: (4 AI techniques) | :white_check_mark: | :white_check_mark: | :white_check_mark: | Very Easy |
 
 ## Using Webhook
 
@@ -64,9 +64,11 @@ curl -X POST http://134.199.185.13:32522/trigger -H "Content-Type: application/j
   "maxReplicas": 10
 }'
 ```
+```
 curl -X POST http://operator-controller-manager-autoscale-trigger.operator-system.svc.cluster.local:8080/trigger -H "Content-Type: application/json" -d '{
   "namespace": "default",
   "deployment": "somegix",
   "metricType": "overwrite",
   "instrcutReplicas": 20
 }'
+```
