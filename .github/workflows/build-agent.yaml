@@ -42,7 +42,7 @@ jobs:
     - name: Build and push Docker image
       run: |
         cd ai-agent
-        docker build -t ${{ secrets.DOCKER_USERNAME }}/agent:${{ env.new_version }} .
-        docker tag $${{ secrets.DOCKER_USERNAME }}/agent:${{ env.new_version }} ${{ secrets.DOCKER_USERNAME }}/agent:latest
+        docker build -t ${{ secrets.DOCKER_USERNAME }}/agent:${{ env.version }} .
+        docker tag $${{ secrets.DOCKER_USERNAME }}/agent:${{ env.version }} ${{ secrets.DOCKER_USERNAME }}/agent:latest
         docker push ${{ secrets.DOCKER_USERNAME }}/agent:latest
-        docker push ${{ secrets.DOCKER_USERNAME }}/agent:${{ env.new_version }}
+        docker push ${{ secrets.DOCKER_USERNAME }}/agent:${{ env.version }}
