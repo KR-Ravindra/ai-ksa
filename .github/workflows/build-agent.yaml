@@ -1,14 +1,12 @@
 name: Build and Push Agent
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'ai-agent/**'
-      - 'VERSION'
-      - '.github/workflows/build-agent.yaml'
   workflow_dispatch:
+  workflow_call:
+      inputs:
+        version:
+          required: true
+          type: string
 
 
 jobs:
@@ -23,6 +21,7 @@ jobs:
 
     # Step 3: Extract the current version and increment it
     - name: Get version
+      if: ${{ inputs.version == '' }}
       id: version
       run: |
         # Extract the current version from a VERSION file or default to 0.1.0

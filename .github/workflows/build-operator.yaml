@@ -71,6 +71,15 @@ jobs:
         cd operator
         make docker-build IMG=${{ secrets.DOCKER_USERNAME }}/operator:${{ env.new_version }}
         docker push ${{ secrets.DOCKER_USERNAME }}/operator:${{ env.new_version }}
+      
+    ## call build agent job
+    - name: Build and push agent
+      uses: ./.github/workflows/build-agent.yaml
+      with:
+        version: ${{ env.new_version }}
+      env:
+        DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+        DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
 
     # Step 7: Deploy to Kubernetes
 # Step 7: Deploy to Kubernetes
