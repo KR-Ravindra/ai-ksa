@@ -183,6 +183,7 @@ func (r *AIHorizontalPodAutoscalerReconciler) reconcileScheduledScaler(ctx conte
                                                     "deployment": "%s",
                                                     "metricType": "overwrite",
                                                     "instructReplicas": %d
+													"callBy": "scheduled-scaler"
                                                 }
                                                 ' http://operator-controller-manager-autoscale-trigger.operator-system.svc.cluster.local:8080/trigger
                                             `, scheduledScaler.Namespace, scheduledScaler.Spec.TargetDeploymentName, scheduledScaler.Spec.Replicas),
@@ -320,7 +321,7 @@ func (r *AIHorizontalPodAutoscalerReconciler) reconcileScheduledScaler(ctx conte
 
 		// Call scaleDeployment with the correct arguments
 		logger.V(1).Info("Calling scaleDeployment for one-time scaling", "TargetDeployment", targetDeployment.Name, "Replicas", scheduledScaler.Spec.Replicas)
-		err = r.scaleDeployment(ctx, logger, targetDeployment, podList, "overwrite", 0, &scheduledScaler.Spec.Replicas)
+		err = r.scaleDeployment(ctx, logger, targetDeployment, podList, "overwrite", 0, &scheduledScaler.Spec.Replicas, "one-time-event")
 		if err != nil {
 			logger.Error(err, "Failed to trigger one-time scaling")
 			return ctrl.Result{}, err
@@ -408,7 +409,7 @@ func (r *AIHorizontalPodAutoscalerReconciler) reconcileAIHorizontalPodAutoscaler
 
 	// 4. Scale based on CPU
 	if aihpa.Spec.TargetDeploymentCPUThreshold != nil {
-		err = r.scaleDeployment(ctx, logger, targetDeployment, podList, "cpu", int64(*aihpa.Spec.TargetDeploymentCPUThreshold), nil)
+		err = r.scaleDeployment(ctx, logger, targetDeployment, podList, "cpu", int64(*aihpa.Spec.TargetDeploymentCPUThreshold), nil, "controller-cpu")
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -416,7 +417,7 @@ func (r *AIHorizontalPodAutoscalerReconciler) reconcileAIHorizontalPodAutoscaler
 
 	// 5. Scale based on Memory (if the field is provided)
 	if aihpa.Spec.TargetDeploymentMemoryThreshold != nil {
-		err = r.scaleDeployment(ctx, logger, targetDeployment, podList, "memory", int64(*aihpa.Spec.TargetDeploymentMemoryThreshold), nil)
+		err = r.scaleDeployment(ctx, logger, targetDeployment, podList, "memory", int64(*aihpa.Spec.TargetDeploymentMemoryThreshold), nil, "controller-memory")
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -426,7 +427,7 @@ func (r *AIHorizontalPodAutoscalerReconciler) reconcileAIHorizontalPodAutoscaler
 	return ctrl.Result{RequeueAfter: time.Second * 15}, nil
 }
 
-func (r *AIHorizontalPodAutoscalerReconciler) scaleDeployment(ctx context.Context, logger logr.Logger, targetDeployment *appsv1.Deployment, podList *corev1.PodList, metricType string, threshold int64, instructReplicas *int32) error {
+func (r *AIHorizontalPodAutoscalerReconciler) scaleDeployment(ctx context.Context, logger logr.Logger, targetDeployment *appsv1.Deployment, podList *corev1.PodList, metricType string, threshold int64, instructReplicas *int32, callBy string) error {
 	totalUsage := int64(0)
 	logger.V(1).Info("Scaling deployment called with arguments", "MetricType", metricType, "Threshold", threshold, "InstructReplicas", instructReplicas)
 	if metricType == "overwrite" {
@@ -438,9 +439,8 @@ func (r *AIHorizontalPodAutoscalerReconciler) scaleDeployment(ctx context.Contex
 				logger.Error(err, "Failed to update deployment replicas")
 				return err
 			}
-			logger.Info("Scaled deployment based on instruct replicas", "NewReplicas", *instructReplicas)
-			go sendNotification(fmt.Sprintf("Scaled deployment %s/%s to %d replicas based on instruct replicas", targetDeployment.Namespace, targetDeployment.Name, *instructReplicas))
-
+			logger.Info("Scaled deployment based on instruct replicas ", "InstructReplicas", *instructReplicas, "CallBy", callBy)
+			go sendNotification(fmt.Sprintf("Scaled deployment %s/%s to %d replicas based on instruct replicas as a call by %s", targetDeployment.Namespace, targetDeployment.Name, *instructReplicas, callBy))
 			return nil
 		}
 	}
@@ -507,6 +507,7 @@ func (r *AIHorizontalPodAutoscalerReconciler) handleWebhook(w http.ResponseWrite
 		MetricType       string `json:"metricType"` // e.g., "cpu" or "memory"
 		Threshold        int64  `json:"threshold,omitempty"`
 		InstructReplicas int32  `json:"instructReplicas,omitempty"`
+		callBy           string `json:"callBy,omitempty"`
 	}
 	err := json.NewDecoder(req.Body).Decode(&payload)
 	if err != nil {
@@ -546,7 +547,7 @@ func (r *AIHorizontalPodAutoscalerReconciler) handleWebhook(w http.ResponseWrite
 		}
 	}
 	// Trigger scaling logic
-	err = r.scaleDeployment(ctx, logger, targetDeployment, podList, payload.MetricType, payload.Threshold, instructReplicas)
+	err = r.scaleDeployment(ctx, logger, targetDeployment, podList, payload.MetricType, payload.Threshold, instructReplicas, payload.callBy)
 	if err != nil {
 		http.Error(w, "Failed to scale deployment: "+err.Error(), http.StatusInternalServerError)
 		return

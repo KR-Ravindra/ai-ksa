@@ -278,7 +278,7 @@ def trigger_autoscaler_api(full_name: str, desired_replicas: int, feature_import
         "deployment": deployment_name,
         "instructReplicas": desired_replicas,
         "feature_importance": feature_importance,
-        "call-from": "AI Scaling Agent",
+        "callBy": "AI Scaling Agent",
         "model_type": MODEL_TYPE,
         "metricType": "overwrite"
     }
