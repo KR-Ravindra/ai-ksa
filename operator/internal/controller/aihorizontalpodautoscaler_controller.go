@@ -119,7 +119,7 @@ func sendNotification(message string, callBy string) error {
 				"type": "section",
 				"text": map[string]interface{}{
 					"type": "mrkdwn",
-					"text": fmt.Sprintf("*ScheduledScaler Notification:*\n%s as callby \n%s", message, callBy),
+					"text": fmt.Sprintf("*ScheduledScaler Notification:*\n%s", message, callBy),
 				},
 			},
 		},

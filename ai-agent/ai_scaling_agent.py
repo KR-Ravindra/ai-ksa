@@ -278,9 +278,9 @@ def trigger_autoscaler_api(full_name: str, desired_replicas: int, feature_import
         "deployment": deployment_name,
         "instructReplicas": desired_replicas,
         "feature_importance": feature_importance,
-        "callBy": "AI Scaling Agent",
         "model_type": MODEL_TYPE,
-        "metricType": "overwrite"
+        "metricType": "overwrite",
+        "callBy": "ai-scaling-agent"
     }
     logger.debug(f"Triggering autoscaler API with payload: {payload}")
     try:
