@@ -26,6 +26,8 @@ AI-KSA is focused on building an AI enabled Kubernetes Scaling Agent to help wit
 
 - [x] On the fly AI based decisions with support for techniques - decision trees, arima, gradient_boosting, rule_based
 
+- [ ] Scale with reconcilation by contacting an external event publisher
+
 - [ ] Adjustable reconcilation time 
 
 - [ ] AI Agent with a progressive knowledge base for identifying long term patterns
@@ -107,21 +109,17 @@ Within Cluster
 curl -X POST http://operator-controller-manager-autoscale-trigger.operator-system.svc.cluster.local:8080/trigger -H "Content-Type: application/json" -d '{
   "namespace": "default",
   "deployment": "somegix",
-  "metricType": "cpu",
-  "threshold": 1000,
-  "minReplicas": 1,
-  "maxReplicas": 10
+  "metricType": "overwrite",
+  "instructReplicas": 20
 }'
 ```
 Outside Cluster
 ```
 curl -X POST http://134.199.185.13:32522/trigger -H "Content-Type: application/json" -d '{
   "namespace": "default",
-  "deployment": "somegix",
-  "metricType": "cpu",
-  "threshold": 0,
-  "minReplicas": 1,
-  "maxReplicas": 10
+  "deployment": "external",
+  "metricType": "overwrite",
+  "instructReplicas": 10
 }'
 ```
 ```
@@ -129,6 +127,6 @@ curl -X POST http://operator-controller-manager-autoscale-trigger.operator-syste
   "namespace": "default",
   "deployment": "somegix",
   "metricType": "overwrite",
-  "instrcutReplicas": 20
+  "instructReplicas": 20
 }'
 ```

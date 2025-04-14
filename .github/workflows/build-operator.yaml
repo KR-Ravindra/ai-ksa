@@ -1,4 +1,4 @@
-name: Build and Push Operator
+name: Build, Push and Deploy Operator
 
 on:
   push:

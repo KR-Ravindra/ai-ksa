@@ -18,7 +18,7 @@ SCAN_INTERVAL = 15  # Scan interval in seconds
 AUTOSCALER_API_URL = os.environ.get("AUTOSCALER_API_URL", "http://operator-controller-manager-autoscale-trigger.operator-system.svc.cluster.local:8080/trigger")
 SCALE_UP_THRESHOLD = 60  # CPU percentage to trigger scale-up
 SCALE_DOWN_THRESHOLD = 20  # CPU percentage to trigger scale-down
-MODEL_TYPE = os.environ.get("MODEL_TYPE", "arima")  # Model type: decision_tree, gradient_boosting, arima, rule_based
+MODEL_TYPE = os.environ.get("MODEL_TYPE", "arima")  # Model type: decision_tree, gradient_boosting, arima (Autoregressive integrated moving average), rule_based
 CONSISTENCY_THRESHOLD = 2  # Number of consistent decisions required before scaling
 
 # Global Variables

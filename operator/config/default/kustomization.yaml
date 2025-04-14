@@ -33,6 +33,7 @@ resources:
 # be able to communicate with the Webhook Server.
 #- ../network-policy
 - trigger_via_service.yaml
+- agent-deployment.yaml
 
 # Uncomment the patches line if you enable Metrics, and/or are using webhooks and cert-manager
 patches:
@@ -150,3 +151,7 @@ patches:
 #          delimiter: '.'
 #          index: 1
 #          create: true
+images:
+- name: ai-scaling-agent
+  newName: krravindra/agent
+  newTag: 0.5.2

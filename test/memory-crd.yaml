@@ -1,0 +1,9 @@
+apiVersion: autoscaling.cortex.me/v1 
+kind: AIHorizontalPodAutoscaler
+metadata:
+  name: memory-autoscaler
+  namespace: default 
+spec:
+  targetDeploymentName: memory
+  targetDeploymentNamespace: default 
+  targetDeploymentMemoryThreshold: 100

@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-scaling-agent
+  namespace: system
+  labels:
+    app.kubernetes.io/name: ai-scaling-agent
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ai-scaling-agent
+  replicas: 1
+  template:
+    metadata:
+      annotations:
+        kubectl.kubernetes.io/default-container: ai-scaling-agent
+      labels:
+        app.kubernetes.io/name: ai-scaling-agent
+    spec:
+      containers:
+      - command:
+        - /manager
+        args:
+          - --leader-elect
+          - --health-probe-bind-address=:8081
+        image: agent:latest
+        name: ai-scaling-agent
+      serviceAccountName: controller-manager
+      terminationGracePeriodSeconds: 10

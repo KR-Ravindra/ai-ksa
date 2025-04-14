@@ -1,0 +1,9 @@
+apiVersion: autoscaling.cortex.me/v1 
+kind: AIHorizontalPodAutoscaler
+metadata:
+  name: cpu-autoscaler
+  namespace: default 
+spec:
+  targetDeploymentName: cpu
+  targetDeploymentNamespace: default 
+  targetDeploymentCPUThreshold: 60

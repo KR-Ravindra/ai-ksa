@@ -6,6 +6,6 @@ metadata:
 spec:
   targetDeploymentName: nginx
   targetDeploymentNamespace: default
-  startTime: "2025-04-09T11:49:00Z" # Specify the exact time in RFC3339 format
+  startTime: "2025-04-10T20:55:00Z" # Exact time in RFC3339 format
   replicas: 5                       # Number of replicas to scale up to
   oneTime: true                     # Indicates this is a one-time scaling event
