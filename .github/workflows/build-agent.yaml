@@ -7,6 +7,7 @@ on:
     paths:
       - 'ai-agent/**'
       - 'VERSION'
+      - '.github/workflows/build-agent.yaml'
   workflow_dispatch:
 
 
@@ -32,7 +33,7 @@ jobs:
         fi
 
         # Save the version
-        echo "version=$new_version" >> $GITHUB_ENV
+        echo "version=$version" >> $GITHUB_ENV
     # Step 5: Log in to Docker Hub
     - name: Log in to Docker Hub
       uses: docker/login-action@v2
@@ -44,6 +45,7 @@ jobs:
     - name: Build and push Docker image
       run: |
         cd ai-agent
+        echo ${{ env.version }}
         docker build -t ${{ secrets.DOCKER_USERNAME }}/agent:${{ env.version }} .
         docker tag $${{ secrets.DOCKER_USERNAME }}/agent:${{ env.version }} ${{ secrets.DOCKER_USERNAME }}/agent:latest
         docker push ${{ secrets.DOCKER_USERNAME }}/agent:latest
