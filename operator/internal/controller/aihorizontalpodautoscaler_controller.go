@@ -508,7 +508,7 @@ func (r *AIHorizontalPodAutoscalerReconciler) handleWebhook(w http.ResponseWrite
 		MetricType       string `json:"metricType"` // e.g., "cpu" or "memory"
 		Threshold        int64  `json:"threshold,omitempty"`
 		InstructReplicas int32  `json:"instructReplicas,omitempty"`
-		callBy           string `json:"callBy,omitempty"`
+		CallBy           string `json:"callBy,omitempty"`
 	}
 	err := json.NewDecoder(req.Body).Decode(&payload)
 	if err != nil {
@@ -548,7 +548,7 @@ func (r *AIHorizontalPodAutoscalerReconciler) handleWebhook(w http.ResponseWrite
 		}
 	}
 	// Trigger scaling logic
-	err = r.scaleDeployment(ctx, logger, targetDeployment, podList, payload.MetricType, payload.Threshold, instructReplicas, payload.callBy)
+	err = r.scaleDeployment(ctx, logger, targetDeployment, podList, payload.MetricType, payload.Threshold, instructReplicas, payload.CallBy)
 	if err != nil {
 		http.Error(w, "Failed to scale deployment: "+err.Error(), http.StatusInternalServerError)
 		return
