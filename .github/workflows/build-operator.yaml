@@ -46,6 +46,7 @@ jobs:
         # Save the new version
         echo "$new_version" > VERSION
         echo "new_version=$new_version" >> $GITHUB_ENV
+        echo "version=$version" >> $GITHUB_ENV
 
     # Step 4: Commit the updated version file
     - name: Commit updated version
@@ -80,4 +81,4 @@ jobs:
         echo "${{ secrets.KUBECONFIG }}" > $KUBECONFIG
         cd operator
         kubectl get ns
-        make deploy IMG=${{ secrets.DOCKER_USERNAME }}/operator:${{ env.new_version }} AGENT_IMG=${{ secrets.DOCKER_USERNAME }}/agent:${{ env.new_version }}
+        make deploy IMG=${{ secrets.DOCKER_USERNAME }}/operator:${{ env.new_version }} AGENT_IMG=${{ secrets.DOCKER_USERNAME }}/agent:${{ env.version }}
