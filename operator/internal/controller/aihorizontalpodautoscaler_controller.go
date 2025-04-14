@@ -1,9 +1,9 @@
 package controller
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
-	"bytes"
 	"net/http"
 	"os"
 	"time"
@@ -113,25 +113,33 @@ func sendNotification(message string) error {
 	if webhookURL == "" {
 		webhookURL = "https://hooks.slack.com/services/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"
 	}
-    payload := map[string]string{
-        "text": message,
-    }
-    payloadBytes, err := json.Marshal(payload)
-    if err != nil {
-        return err
-    }
+	payload := map[string]interface{}{
+		"blocks": []map[string]interface{}{
+			{
+				"type": "section",
+				"text": map[string]interface{}{
+					"type": "mrkdwn",
+					"text": fmt.Sprintf("*ScheduledScaler Notification:*\n%s", message),
+				},
+			},
+		},
+	}
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
 
-    resp, err := http.Post(webhookURL, "application/json", bytes.NewBuffer(payloadBytes))
-    if err != nil {
-        return err
-    }
-    defer resp.Body.Close()
+	resp, err := http.Post(webhookURL, "application/json", bytes.NewBuffer(payloadBytes))
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
 
-    if resp.StatusCode != http.StatusOK {
-        return fmt.Errorf("Failed to send notification, status code: %d", resp.StatusCode)
-    }
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("Failed to send notification, status code: %d", resp.StatusCode)
+	}
 
-    return nil
+	return nil
 }
 
 func (r *AIHorizontalPodAutoscalerReconciler) reconcileScheduledScaler(ctx context.Context, scheduledScaler *autoscalingv1.ScheduledScaler) (ctrl.Result, error) {
@@ -267,7 +275,7 @@ func (r *AIHorizontalPodAutoscalerReconciler) reconcileScheduledScaler(ctx conte
 
 		message := fmt.Sprintf("ScheduledScaler %s created with schedule %s and duration %s", scheduledScaler.Name, scheduledScaler.Spec.Schedule, scheduledScaler.Spec.Duration)
 		go sendNotification(message)
-		
+
 		return ctrl.Result{}, nil
 	}
 
@@ -431,6 +439,8 @@ func (r *AIHorizontalPodAutoscalerReconciler) scaleDeployment(ctx context.Contex
 				return err
 			}
 			logger.Info("Scaled deployment based on instruct replicas", "NewReplicas", *instructReplicas)
+			go sendNotification(fmt.Sprintf("Scaled deployment %s/%s to %d replicas based on instruct replicas", targetDeployment.Namespace, targetDeployment.Name, *instructReplicas))
+
 			return nil
 		}
 	}
