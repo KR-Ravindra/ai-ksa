@@ -81,4 +81,4 @@ jobs:
         echo "${{ secrets.KUBECONFIG }}" > $KUBECONFIG
         cd operator
         kubectl get ns
-        make deploy IMG=${{ secrets.DOCKER_USERNAME }}/operator:${{ env.new_version }} AGENT_IMG=${{ secrets.DOCKER_USERNAME }}/agent:${{ env.version }}
+        make deploy IMG=${{ secrets.DOCKER_USERNAME }}/operator:${{ env.new_version }} AGENT_IMG=${{ secrets.DOCKER_USERNAME }}/agent:${{ env.new_version }}
