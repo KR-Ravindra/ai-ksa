@@ -13,13 +13,13 @@ import requests
 import logging
 
 # Configuration
-CPU_HISTORY_LENGTH = 10
-SCAN_INTERVAL = 15  # Scan interval in seconds
+CPU_HISTORY_LENGTH = os.environ.get("CPU_HISTORY_LENGTH", 10)  # Number of past CPU metrics to consider
+SCAN_INTERVAL = os.environ.get("SCAN_INTERVAL", 15)  # Time in seconds between scans
 AUTOSCALER_API_URL = os.environ.get("AUTOSCALER_API_URL", "http://operator-controller-manager-autoscale-trigger.operator-system.svc.cluster.local:8080/trigger")
-SCALE_UP_THRESHOLD = 60  # CPU percentage to trigger scale-up
-SCALE_DOWN_THRESHOLD = 20  # CPU percentage to trigger scale-down
+SCALE_UP_THRESHOLD = os.environ.get("SCALE_UP_THRESHOLD", 800)  # CPU percentage to trigger scale-up
+SCALE_DOWN_THRESHOLD = os.environ.get("SCALE_DOWN_THRESHOLD", 200)  # CPU percentage to trigger scale-down
 MODEL_TYPE = os.environ.get("MODEL_TYPE", "arima")  # Model type: decision_tree, gradient_boosting, arima (Autoregressive integrated moving average), rule_based
-CONSISTENCY_THRESHOLD = 2  # Number of consistent decisions required before scaling
+CONSISTENCY_THRESHOLD = os.environ.get("CONSISTENCY_THRESHOLD", 3)  # Number of recent decisions to check for consistency
 
 # Global Variables
 cpu_history: Dict[str, List[int]] = defaultdict(list)
@@ -34,7 +34,16 @@ logger = logging.getLogger(__name__)
 
 def main():
     logger.info("Starting AI Scaling Agent...")
+    logger.info("Starting AI agent with configuration parameters:")
+    logger.info(f"CPU_HISTORY_LENGTH: {CPU_HISTORY_LENGTH}")
+    logger.info(f"SCAN_INTERVAL: {SCAN_INTERVAL}")
+    logger.info(f"SCALE_UP_THRESHOLD: {SCALE_UP_THRESHOLD}")
+    logger.info(f"SCALE_DOWN_THRESHOLD: {SCALE_DOWN_THRESHOLD}")
+    logger.info(f"MODEL_TYPE: {MODEL_TYPE}")
+    logger.info(f"CONSISTENCY_THRESHOLD: {CONSISTENCY_THRESHOLD}")
+    logger.info("Initializing Kubernetes client...")
     logger.info(f"Using model type: {MODEL_TYPE}")
+
     # Kubernetes Client Setup
     try:
         config.load_incluster_config()

@@ -22,5 +22,20 @@ spec:
       containers:
       - image: ai-scaling-agent
         name: ai-scaling-agent
+      env:
+      - name: CPU_HISTORY_LENGTH
+        value: "10"
+      - name: SCAN_INTERVAL
+        value: "15"
+      - name: SCALE_UP_THRESHOLD
+        value: "800"
+      - name: SCALE_DOWN_THRESHOLD
+        value: "200"
+      - name: MODEL_TYPE
+        value: "arima"
+      - name: CONSISTENCY_THRESHOLD
+        value: "2"
+      - name: AUTOSCALER_API_URL
+        value: "http://controller-manager-autoscale-trigger:8080"
       serviceAccountName: controller-manager
       terminationGracePeriodSeconds: 10
