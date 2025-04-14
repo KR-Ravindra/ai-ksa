@@ -107,39 +107,43 @@ func (r *AIHorizontalPodAutoscalerReconciler) Reconcile(ctx context.Context, req
 }
 
 func sendNotification(message string, callBy string) error {
-	webhookURL := os.Getenv("SLACK_WEBHOOK_URL")
-	logger := log.FromContext(context.Background())
-	logger.Info("Sending notification to Slack", "WebhookURL", webhookURL, "Message", message, "CallBy", callBy)
-	if webhookURL == "" {
-		webhookURL = "https://hooks.slack.com/services/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"
-	}
-	payload := map[string]interface{}{
-		"blocks": []map[string]interface{}{
-			{
-				"type": "section",
-				"text": map[string]interface{}{
-					"type": "mrkdwn",
-					"text": fmt.Sprintf("*ScheduledScaler Notification:*\n%s", message, callBy),
-				},
-			},
-		},
-	}
-	payloadBytes, err := json.Marshal(payload)
+    webhookURL := os.Getenv("SLACK_WEBHOOK_URL")
+    logger := log.FromContext(context.Background())
+    logger.Info("Sending notification to Slack", "WebhookURL", webhookURL, "Message", message, "CallBy", callBy)
+    if webhookURL == "" {
+        webhookURL = "https://hooks.slack.com/services/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"
+    }
+    payload := map[string]interface{}{
+        "blocks": []map[string]interface{}{
+            {
+                "type": "section",
+                "text": map[string]interface{}{
+                    "type": "mrkdwn",
+                    "text": fmt.Sprintf(
+                        "*ScheduledScaler Notification:*\n\n*Message:* %s\n*Call By:* `%s`",
+                        message,
+                        callBy,
+                    ),
+                },
+            },
+        },
+    }
+    payloadBytes, err := json.Marshal(payload)
+    if err != nil {
+        return err
+    }
+
+    resp, err := http.Post(webhookURL, "application/json", bytes.NewBuffer(payloadBytes))
 	if err != nil {
-		return err
-	}
+        return err
+    }
+    defer resp.Body.Close()
 
-	resp, err := http.Post(webhookURL, "application/json", bytes.NewBuffer(payloadBytes))
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
+    if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to send notification, status code: %d", resp.StatusCode)
+    }
 
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("Failed to send notification, status code: %d", resp.StatusCode)
-	}
-
-	return nil
+    return nil
 }
 
 func (r *AIHorizontalPodAutoscalerReconciler) reconcileScheduledScaler(ctx context.Context, scheduledScaler *autoscalingv1.ScheduledScaler) (ctrl.Result, error) {
