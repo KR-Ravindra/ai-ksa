@@ -445,7 +445,7 @@ func (r *AIHorizontalPodAutoscalerReconciler) scaleDeployment(ctx context.Contex
 				return err
 			}
 			logger.Info("Scaled deployment based on instruct replicas ", "InstructReplicas", *instructReplicas, "CallBy", callBy)
-			go sendNotification(fmt.Sprintf("Scaled deployment %s/%s to %d replicas based on instruct replicas as a call by %s", targetDeployment.Namespace, targetDeployment.Name, *instructReplicas, callBy), callBy)
+			go sendNotification(fmt.Sprintf("Scaled deployment %s/%s to %d replicas based on instruct replicas", targetDeployment.Namespace, targetDeployment.Name, *instructReplicas), callBy)
 			return nil
 		}
 	}
