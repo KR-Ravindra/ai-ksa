@@ -182,7 +182,7 @@ func (r *AIHorizontalPodAutoscalerReconciler) reconcileScheduledScaler(ctx conte
                                                     "namespace": "%s",
                                                     "deployment": "%s",
                                                     "metricType": "overwrite",
-                                                    "instructReplicas": %d
+                                                    "instructReplicas": %d,
 													"callBy": "scheduled-scaler"
                                                 }
                                                 ' http://operator-controller-manager-autoscale-trigger.operator-system.svc.cluster.local:8080/trigger
