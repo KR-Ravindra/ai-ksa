@@ -26,9 +26,9 @@ jobs:
       run: |
         # Extract the current version from a VERSION file or default to 0.1.0
         if [ -f VERSION ]; then
-          version=$(cat VERSION)
+          echo "VERSION=$(cat VERSION)" >> $GITHUB_ENV
         else
-          version="0.5.0"
+          echo "VERSION=0.5.0" >> $GITHUB_ENV
         fi
 
     # Step 5: Log in to Docker Hub
