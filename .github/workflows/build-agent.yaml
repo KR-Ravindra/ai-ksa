@@ -42,5 +42,5 @@ jobs:
     - name: Build and push Docker image
       run: |
         cd ai-agent
-        docker build -t ${{ secrets.DOCKER_USERNAME }}/agent:${{ env.new_version }} .
-        docker push ${{ secrets.DOCKER_USERNAME }}/agent:${{ env.new_version }}
+        docker build -t ${{ secrets.DOCKER_USERNAME }}/agent:${{ env.version }} .
+        docker push ${{ secrets.DOCKER_USERNAME }}/agent:${{ env.version }}
