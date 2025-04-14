@@ -56,63 +56,71 @@ def main():
     custom_objects_api = client.CustomObjectsApi()  # Use CustomObjectsApi for metrics
 
     while True:
-        try:
-            logger.info("Scanning deployments...")
-            # Discover Deployments
-            deployments = apps_v1.list_deployment_for_all_namespaces(label_selector="ai-scaling=true").items
-            for deployment in deployments:
-                namespace = deployment.metadata.namespace
-                deployment_name = deployment.metadata.name
-                full_name = f"{namespace}/{deployment_name}"
+      try:
+        logger.info("Scanning deployments...")
+        # Discover Deployments
+        deployments = apps_v1.list_deployment_for_all_namespaces(label_selector="ai-scaling=true").items
+        for deployment in deployments:
+            namespace = deployment.metadata.namespace
+            deployment_name = deployment.metadata.name
+            full_name = f"{namespace}/{deployment_name}"
 
-                # Skip system namespaces
-                if namespace == "kube-system":
-                    logger.debug(f"Skipping system namespace for deployment: {full_name}")
-                    continue
+            # Skip system namespaces
+            if namespace == "kube-system":
+                logger.debug(f"Skipping system namespace for deployment: {full_name}")
+                continue
 
-                # Get CPU and RAM Metrics
-                try:
-                    logger.debug(f"Fetching CPU and RAM metrics for deployment: {full_name}")
-                    cpu_usage, ram_usage = get_metrics(custom_objects_api, deployment_name, namespace, deployment.spec.selector.match_labels)
-                    logger.info(f"Metrics for {full_name}: CPU={cpu_usage}, RAM={ram_usage}")
-                except Exception as e:
-                    logger.error(f"Error getting metrics for {full_name}: {e}")
-                    continue
+            # Get CPU and RAM Metrics
+            try:
+                logger.debug(f"Fetching CPU and RAM metrics for deployment: {full_name}")
+                cpu_usage, ram_usage = get_metrics(custom_objects_api, deployment_name, namespace, deployment.spec.selector.match_labels)
+                logger.info(f"Metrics for {full_name}: CPU={cpu_usage}, RAM={ram_usage}")
+            except Exception as e:
+                logger.error(f"Error getting metrics for {full_name}: {e}")
+                continue
 
-                # Update History
-                logger.debug(f"Updating history for deployment: {full_name}")
-                update_history(full_name, cpu_usage, ram_usage)
+            # Fetch CPU limit and calculate thresholds
+            cpu_limit = get_cpu_limit(deployment)
+            scale_up_threshold = cpu_limit if cpu_limit > 0 else SCALE_UP_THRESHOLD
+            scale_down_threshold = scale_up_threshold // 4  # Example: Scale down threshold is 25% of scale-up threshold
 
-                # Initialize Model if Needed
-                if full_name not in models:
-                    logger.info(f"Initializing model for deployment: {full_name}")
-                    initialize_model(full_name)
+            # Update History
+            logger.debug(f"Updating history for deployment: {full_name}")
+            update_history(full_name, cpu_usage, ram_usage)
 
-                # Get the current number of replicas
-                current_replicas = deployment.spec.replicas
+            # Initialize Model if Needed
+            if full_name not in models:
+                logger.info(f"Initializing model for deployment: {full_name}")
+                initialize_model(full_name)
 
-                # Make Scaling Decision
-                logger.debug(f"Making scaling decision for deployment: {full_name}")
-                desired_replicas, feature_importance = make_scaling_decision(full_name, current_replicas)
+            # Get the current number of replicas
+            current_replicas = deployment.spec.replicas
 
-                # Update Scaling Decision History
-                update_scaling_decision_history(full_name, desired_replicas)
+            # Make Scaling Decision
+            logger.debug(f"Making scaling decision for deployment: {full_name}")
+            desired_replicas, feature_importance = make_scaling_decision(full_name, current_replicas, scale_up_threshold, scale_down_threshold)
 
-                # Check Consistency
-                if is_scaling_decision_consistent(full_name, desired_replicas) and desired_replicas != 0:
-                    logger.info(f"Scaling decision for {full_name} is consistent: Scale by {desired_replicas}, Top Features: {feature_importance}")
-                    if current_replicas != desired_replicas:
-                        logger.info(f"Triggering autoscaler API for {full_name} to scale to {desired_replicas}")
-                        trigger_autoscaler_api(full_name, desired_replicas, feature_importance)
-                        scaling_decision_history[full_name] = []
+            # Update Scaling Decision History
+            update_scaling_decision_history(full_name, desired_replicas)
+
+            # Check Consistency
+            if is_scaling_decision_consistent(full_name, desired_replicas) and desired_replicas != 0:
+                logger.info(f"Scaling decision for {full_name} is consistent: Scale by {desired_replicas}, Top Features: {feature_importance}")
+                if current_replicas != desired_replicas:
+                    logger.info(f"Triggering autoscaler API for {full_name} to scale to {desired_replicas}")
+                    trigger_autoscaler_api(full_name, desired_replicas, feature_importance)
+                    scaling_decision_history[full_name] = []
                 else:
-                    logger.info(f"Scaling decision for {full_name} is not yet consistent: {scaling_decision_history[full_name]}")
+                    logger.info(f"No scaling action needed for {full_name}. Current replicas: {current_replicas}, Desired replicas: {desired_replicas}")
+                
+            else:
+                logger.info(f"Scaling decision for {full_name} is not yet consistent: {scaling_decision_history[full_name]}")
 
-        except Exception as e:
-            logger.error(f"Error in main loop: {e}")
+      except Exception as e:
+        logger.error(f"Error in main loop: {e}")
 
-        logger.debug(f"Sleeping for {SCAN_INTERVAL} seconds before next scan.")
-        time.sleep(SCAN_INTERVAL)
+      logger.debug(f"Sleeping for {SCAN_INTERVAL} seconds before next scan.")
+      time.sleep(SCAN_INTERVAL)
         
 def initialize_model(full_name: str):
     """Initializes the selected model for a given deployment."""
@@ -193,7 +201,19 @@ def is_scaling_decision_consistent(full_name: str, decision: int) -> bool:
     history = scaling_decision_history[full_name]
     return len(history) == CONSISTENCY_THRESHOLD and all(d == decision for d in history)
 
-def make_scaling_decision(full_name: str, current_replicas: int) -> Tuple[int, Dict[str, float]]:
+def get_cpu_limit(deployment) -> int:
+    """Fetches the CPU limit for a deployment. Returns 0 if no limit is defined."""
+    containers = deployment.spec.template.spec.containers
+    for container in containers:
+        if container.resources and container.resources.limits and "cpu" in container.resources.limits:
+            cpu_limit = container.resources.limits["cpu"]
+            if cpu_limit.endswith("m"):
+                return int(cpu_limit[:-1])  # Convert millicores to integer
+            elif cpu_limit.isdigit():
+                return int(cpu_limit) * 1000  # Convert cores to millicores
+    return 0  # No CPU limit defined
+
+def make_scaling_decision(full_name: str, current_replicas: int, scale_up_threshold: int, scale_down_threshold: int) -> Tuple[int, Dict[str, float]]:
     """Makes a scaling decision using the selected model."""
     global models, cpu_history, ram_history
 
@@ -218,13 +238,13 @@ def make_scaling_decision(full_name: str, current_replicas: int) -> Tuple[int, D
         predicted_cpu = cpu_history[full_name][-1]
 
     # Scaling Logic
-    if predicted_cpu > SCALE_UP_THRESHOLD:
+    if predicted_cpu > scale_up_threshold:
         # Scale proportionally based on how far the predicted CPU is above the threshold
-        scale_factor = predicted_cpu / SCALE_UP_THRESHOLD
+        scale_factor = predicted_cpu / scale_up_threshold
         desired_replicas = int(current_replicas * scale_factor)
-    elif predicted_cpu < SCALE_DOWN_THRESHOLD:
+    elif predicted_cpu < scale_down_threshold:
         # Scale proportionally based on how far the predicted CPU is below the threshold
-        scale_factor = SCALE_DOWN_THRESHOLD / max(predicted_cpu, 1)  # Avoid division by zero
+        scale_factor = scale_down_threshold / max(predicted_cpu, 1)  # Avoid division by zero
         desired_replicas = max(1, int(current_replicas / scale_factor))  # Ensure replicas don't go below 1
     else:
         desired_replicas = current_replicas
@@ -232,6 +252,7 @@ def make_scaling_decision(full_name: str, current_replicas: int) -> Tuple[int, D
     # Simplified Feature Importance
     feature_importance = calculate_feature_importance(cpu_history[full_name], predicted_cpu)
     return desired_replicas, top_n_features(feature_importance, 3)
+
 def calculate_feature_importance(cpu_history: List[int], predicted_cpu: float) -> Dict[str, float]:
     """Calculates a simplified feature importance."""
     feature_importance = {}
@@ -259,6 +280,7 @@ def trigger_autoscaler_api(full_name: str, desired_replicas: int, feature_import
         "feature_importance": feature_importance,
         "call-from": "AI Scaling Agent",
         "model_type": MODEL_TYPE,
+        "metricType": "overwrite"
     }
     logger.debug(f"Triggering autoscaler API with payload: {payload}")
     try:
