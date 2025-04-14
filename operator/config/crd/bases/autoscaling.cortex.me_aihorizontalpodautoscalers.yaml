@@ -43,10 +43,6 @@ spec:
             properties:
               externalMetricEndpoint:
                 type: string
-              maxReplicas:
-                type: integer
-              minReplicas:
-                type: integer
               targetDeploymentCPUThreshold:
                 type: integer
               targetDeploymentMemoryThreshold:
@@ -56,8 +52,6 @@ spec:
               targetDeploymentNamespace:
                 type: string
             required:
-            - maxReplicas
-            - minReplicas
             - targetDeploymentName
             - targetDeploymentNamespace
             type: object

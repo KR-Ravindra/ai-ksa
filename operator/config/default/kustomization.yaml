@@ -14,10 +14,6 @@ namePrefix: operator-
 #  pairs:
 #    someName: someValue
 
-resources:
-- ../crd
-- ../rbac
-- ../manager
 # [WEBHOOK] To enable webhook, uncomment all the sections with [WEBHOOK] prefix including the one in
 # crd/kustomization.yaml
 #- ../webhook
@@ -26,22 +22,27 @@ resources:
 # [PROMETHEUS] To enable prometheus monitor, uncomment all sections with 'PROMETHEUS'.
 #- ../prometheus
 # [METRICS] Expose the controller manager metrics service.
-- metrics_service.yaml
 # [NETWORK POLICY] Protect the /metrics endpoint and Webhook Server with NetworkPolicy.
 # Only Pod(s) running a namespace labeled with 'metrics: enabled' will be able to gather the metrics.
 # Only CR(s) which requires webhooks and are applied on namespaces labeled with 'webhooks: enabled' will
 # be able to communicate with the Webhook Server.
 #- ../network-policy
+resources:
+- ../crd
+- ../rbac
+- ../manager
+- metrics_service.yaml
 - trigger_via_service.yaml
 - agent-deployment.yaml
 
 # Uncomment the patches line if you enable Metrics, and/or are using webhooks and cert-manager
-patches:
 # [METRICS] The following patch will enable the metrics endpoint using HTTPS and the port :8443.
 # More info: https://book.kubebuilder.io/reference/metrics
+patches:
 - path: manager_metrics_patch.yaml
   target:
     kind: Deployment
+    name: operator-controller-manager
 
 # [WEBHOOK] To enable webhook, uncomment all the sections with [WEBHOOK] prefix including the one in
 # crd/kustomization.yaml
@@ -153,5 +154,7 @@ patches:
 #          create: true
 images:
 - name: ai-scaling-agent
-  newName: krravindra/agent
-  newTag: 0.5.2
+  newName: ai-scaling-agent
+  newTag: latest
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
