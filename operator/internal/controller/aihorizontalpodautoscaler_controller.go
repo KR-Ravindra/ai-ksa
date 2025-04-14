@@ -106,10 +106,10 @@ func (r *AIHorizontalPodAutoscalerReconciler) Reconcile(ctx context.Context, req
 	return ctrl.Result{}, err
 }
 
-func sendNotification(message string) error {
+func sendNotification(message string, callBy string) error {
 	webhookURL := os.Getenv("SLACK_WEBHOOK_URL")
 	logger := log.FromContext(context.Background())
-	logger.Info("Sending notification to Slack", "WebhookURL", webhookURL, "Message", message)
+	logger.Info("Sending notification to Slack", "WebhookURL", webhookURL, "Message", message, "CallBy", callBy)
 	if webhookURL == "" {
 		webhookURL = "https://hooks.slack.com/services/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"
 	}
@@ -119,7 +119,7 @@ func sendNotification(message string) error {
 				"type": "section",
 				"text": map[string]interface{}{
 					"type": "mrkdwn",
-					"text": fmt.Sprintf("*ScheduledScaler Notification:*\n%s", message),
+					"text": fmt.Sprintf("*ScheduledScaler Notification:*\n%s as callby \n%s", message, callBy),
 				},
 			},
 		},
@@ -246,7 +246,8 @@ func (r *AIHorizontalPodAutoscalerReconciler) reconcileScheduledScaler(ctx conte
                                                     "namespace": "%s",
                                                     "deployment": "%s",
                                                     "metricType": "overwrite",
-                                                    "instructReplicas": %d
+                                                    "instructReplicas": %d,
+													"callBy": "scheduled-scaler"
                                                 }
                                                 ' http://operator-controller-manager-autoscale-trigger.operator-system.svc.cluster.local:8080/trigger
                                             `, scheduledScaler.Namespace, scheduledScaler.Spec.TargetDeploymentName, scheduledScaler.Spec.EndReplicas),
@@ -275,7 +276,7 @@ func (r *AIHorizontalPodAutoscalerReconciler) reconcileScheduledScaler(ctx conte
 		logger.Info("Recurring CronJobs reconciled", "ScaleUpCronJob", scaleUpCronJob.Name, "ScaleDownCronJob", scaleDownCronJob.Name)
 
 		message := fmt.Sprintf("ScheduledScaler %s created with schedule %s and duration %s", scheduledScaler.Name, scheduledScaler.Spec.Schedule, scheduledScaler.Spec.Duration)
-		go sendNotification(message)
+		go sendNotification(message, "scheduled-scaler")
 
 		return ctrl.Result{}, nil
 	}
@@ -297,7 +298,7 @@ func (r *AIHorizontalPodAutoscalerReconciler) reconcileScheduledScaler(ctx conte
 			// Requeue to check again closer to the start time
 			requeueAfter := time.Until(startTime)
 			logger.Info("Requeueing until start time", "RequeueAfter", requeueAfter)
-			go sendNotification(fmt.Sprintf("ScheduledScaler %s will scale at %s", scheduledScaler.Name, startTime))
+			go sendNotification(fmt.Sprintf("ScheduledScaler %s will scale at %s", scheduledScaler.Name, startTime), "one-time-scaler")
 			return ctrl.Result{RequeueAfter: requeueAfter}, nil
 		}
 
@@ -440,7 +441,7 @@ func (r *AIHorizontalPodAutoscalerReconciler) scaleDeployment(ctx context.Contex
 				return err
 			}
 			logger.Info("Scaled deployment based on instruct replicas ", "InstructReplicas", *instructReplicas, "CallBy", callBy)
-			go sendNotification(fmt.Sprintf("Scaled deployment %s/%s to %d replicas based on instruct replicas as a call by %s", targetDeployment.Namespace, targetDeployment.Name, *instructReplicas, callBy))
+			go sendNotification(fmt.Sprintf("Scaled deployment %s/%s to %d replicas based on instruct replicas as a call by %s", targetDeployment.Namespace, targetDeployment.Name, *instructReplicas, callBy), callBy)
 			return nil
 		}
 	}
@@ -489,7 +490,7 @@ func (r *AIHorizontalPodAutoscalerReconciler) scaleDeployment(ctx context.Contex
 	logger.Info("Scaled deployment", "NewReplicas", newReplicas)
 
 	message := fmt.Sprintf("Scaled deployment %s/%s from %d to %d based on %s usage", targetDeployment.Namespace, targetDeployment.Name, currentReplicas, newReplicas, metricType)
-	go sendNotification(message)
+	go sendNotification(message, callBy)
 	return nil
 
 }
