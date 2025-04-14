@@ -2,11 +2,9 @@ name: Build and Push Agent
 
 on:
   workflow_dispatch:
-  workflow_call:
-      inputs:
-        version:
-          required: true
-          type: string
+  push:
+    branches:
+      - main
 
 
 jobs:
