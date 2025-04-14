@@ -13,13 +13,13 @@ import requests
 import logging
 
 # Configuration
-CPU_HISTORY_LENGTH = os.environ.get("CPU_HISTORY_LENGTH", 10)  # Number of past CPU metrics to consider
-SCAN_INTERVAL = os.environ.get("SCAN_INTERVAL", 15)  # Time in seconds between scans
+CPU_HISTORY_LENGTH = int(os.environ.get("CPU_HISTORY_LENGTH", 10))  # Number of past CPU metrics to consider
+SCAN_INTERVAL = int(os.environ.get("SCAN_INTERVAL", 15))  # Time in seconds between scans
 AUTOSCALER_API_URL = os.environ.get("AUTOSCALER_API_URL", "http://operator-controller-manager-autoscale-trigger.operator-system.svc.cluster.local:8080/trigger")
-SCALE_UP_THRESHOLD = os.environ.get("SCALE_UP_THRESHOLD", 800)  # CPU percentage to trigger scale-up
-SCALE_DOWN_THRESHOLD = os.environ.get("SCALE_DOWN_THRESHOLD", 200)  # CPU percentage to trigger scale-down
-MODEL_TYPE = os.environ.get("MODEL_TYPE", "arima")  # Model type: decision_tree, gradient_boosting, arima (Autoregressive integrated moving average), rule_based
-CONSISTENCY_THRESHOLD = os.environ.get("CONSISTENCY_THRESHOLD", 3)  # Number of recent decisions to check for consistency
+SCALE_UP_THRESHOLD = int(os.environ.get("SCALE_UP_THRESHOLD", 800))  # CPU percentage to trigger scale-up
+SCALE_DOWN_THRESHOLD = int(os.environ.get("SCALE_DOWN_THRESHOLD", 200))  # CPU percentage to trigger scale-down
+MODEL_TYPE = int(os.environ.get("MODEL_TYPE", "arima"))  # Model type: decision_tree, gradient_boosting, arima (Autoregressive integrated moving average), rule_based
+CONSISTENCY_THRESHOLD = int(os.environ.get("CONSISTENCY_THRESHOLD", 3))  # Number of recent decisions to check for consistency
 
 # Global Variables
 cpu_history: Dict[str, List[int]] = defaultdict(list)
