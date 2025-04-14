@@ -26,14 +26,6 @@ AI-KSA is focused on building an AI enabled Kubernetes Scaling Agent to help wit
 
 - [x] On the fly AI based decisions with support for techniques - decision trees, arima, gradient_boosting, rule_based
 
-- [ ] Scale with reconcilation by contacting an external event publisher
-
-- [ ] Adjustable reconcilation time 
-
-- [ ] AI Agent with a progressive knowledge base for identifying long term patterns
-
-:interrobang: Integration with MCP Chat based AI Engine for human + AI decision making for pod autoscaling
-
 ## CRDs 
 
 - AIHorizontalPodAutoscaler.autoscaling.cortex.me
@@ -73,11 +65,11 @@ spec:
 
 A comparision table is given below, so as to compare with existing best performing autoscalers solving horizantal pod autoscaling in kubernetes.
 
-| Horizantal Pod Autoscaler | Scaling by CPU, RAM usage | CPU, RAM usage against Node | External Events | Metrics | AI enabled | Webhook | Schedule scaling | Custom Enhancements | Easy of Use |
+| Horizantal Pod Autoscaler | Scaling by CPU, RAM usage | CPU, RAM usage by real values | External Events | Metrics | AI enabled | Webhook | Schedule scaling | Custom Enhancements | Easy of Use |
 | ----------- | ----------- | ----------- | ----------- | ----------- | ----------- | ----------- | ----------- | ---------- | ---------- |
 | KEDA ![](./documentation/keda-logo.png) | :white_check_mark: | :x: | :white_check_mark: (limited) | :white_check_mark: | :x: | :x: | :white_check_mark: | :white_check_mark: (limited) | Medium |
 | Kubernetes HPA ![](./documentation/hpa.jpg) | :white_check_mark: | :x: | :x: | :white_check_mark: (beta, needs translation) | :x: | :x: | :x: |  :x: | Very Easy |
-| AI-KSA | :white_check_mark: | :white_check_mark: | :white_check_mark: (Need to extend) | :white_check_mark: | :white_check_mark: (4 AI techniques) | :white_check_mark: | :white_check_mark: | :white_check_mark: | Very Easy |
+| AI-KSA | :white_check_mark: | :x:| :white_check_mark: (Need to extend) | :white_check_mark: | :white_check_mark: (4 AI techniques) | :white_check_mark: | :white_check_mark: | :white_check_mark: | Very Easy |
 
 ## Operator Manifests
 List of manifests deployed as part of the operator.

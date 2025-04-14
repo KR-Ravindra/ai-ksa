@@ -3,7 +3,9 @@ package controller
 import (
 	"context"
 	"encoding/json"
+	"bytes"
 	"net/http"
+	"os"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -102,6 +104,34 @@ func (r *AIHorizontalPodAutoscalerReconciler) Reconcile(ctx context.Context, req
 
 	logger.Error(err, "Failed to get resource")
 	return ctrl.Result{}, err
+}
+
+func sendNotification(message string) error {
+	webhookURL := os.Getenv("SLACK_WEBHOOK_URL")
+	logger := log.FromContext(context.Background())
+	logger.Info("Sending notification to Slack", "WebhookURL", webhookURL, "Message", message)
+	if webhookURL == "" {
+		webhookURL = "https://hooks.slack.com/services/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"
+	}
+    payload := map[string]string{
+        "text": message,
+    }
+    payloadBytes, err := json.Marshal(payload)
+    if err != nil {
+        return err
+    }
+
+    resp, err := http.Post(webhookURL, "application/json", bytes.NewBuffer(payloadBytes))
+    if err != nil {
+        return err
+    }
+    defer resp.Body.Close()
+
+    if resp.StatusCode != http.StatusOK {
+        return fmt.Errorf("Failed to send notification, status code: %d", resp.StatusCode)
+    }
+
+    return nil
 }
 
 func (r *AIHorizontalPodAutoscalerReconciler) reconcileScheduledScaler(ctx context.Context, scheduledScaler *autoscalingv1.ScheduledScaler) (ctrl.Result, error) {
@@ -234,6 +264,10 @@ func (r *AIHorizontalPodAutoscalerReconciler) reconcileScheduledScaler(ctx conte
 		}
 
 		logger.Info("Recurring CronJobs reconciled", "ScaleUpCronJob", scaleUpCronJob.Name, "ScaleDownCronJob", scaleDownCronJob.Name)
+
+		message := fmt.Sprintf("ScheduledScaler %s created with schedule %s and duration %s", scheduledScaler.Name, scheduledScaler.Spec.Schedule, scheduledScaler.Spec.Duration)
+		go sendNotification(message)
+		
 		return ctrl.Result{}, nil
 	}
 
@@ -254,6 +288,7 @@ func (r *AIHorizontalPodAutoscalerReconciler) reconcileScheduledScaler(ctx conte
 			// Requeue to check again closer to the start time
 			requeueAfter := time.Until(startTime)
 			logger.Info("Requeueing until start time", "RequeueAfter", requeueAfter)
+			go sendNotification(fmt.Sprintf("ScheduledScaler %s will scale at %s", scheduledScaler.Name, startTime))
 			return ctrl.Result{RequeueAfter: requeueAfter}, nil
 		}
 
@@ -442,6 +477,9 @@ func (r *AIHorizontalPodAutoscalerReconciler) scaleDeployment(ctx context.Contex
 		return err
 	}
 	logger.Info("Scaled deployment", "NewReplicas", newReplicas)
+
+	message := fmt.Sprintf("Scaled deployment %s/%s from %d to %d based on %s usage", targetDeployment.Namespace, targetDeployment.Name, currentReplicas, newReplicas, metricType)
+	go sendNotification(message)
 	return nil
 
 }
