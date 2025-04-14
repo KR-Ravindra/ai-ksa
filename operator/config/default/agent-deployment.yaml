@@ -19,12 +19,7 @@ spec:
         app.kubernetes.io/name: ai-scaling-agent
     spec:
       containers:
-      - command:
-        - /manager
-        args:
-          - --leader-elect
-          - --health-probe-bind-address=:8081
-        image: agent:latest
+      - image: agent:latest
         name: ai-scaling-agent
       serviceAccountName: controller-manager
       terminationGracePeriodSeconds: 10
