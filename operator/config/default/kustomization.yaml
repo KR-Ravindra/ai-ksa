@@ -152,9 +152,6 @@ patches:
 #          delimiter: '.'
 #          index: 1
 #          create: true
-images:
-- name: ai-scaling-agent
-  newName: ai-scaling-agent
-  newTag: latest
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
+

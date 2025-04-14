@@ -20,7 +20,7 @@ spec:
         app.kubernetes.io/name: ai-scaling-agent
     spec:
       containers:
-      - image: agent:latest
+      - image: ai-scaling-agent
         name: ai-scaling-agent
       serviceAccountName: controller-manager
       terminationGracePeriodSeconds: 10
