@@ -84,7 +84,6 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         OPERATOR_NAME: "AI-KSA Operator" 
         OPERATOR_DESCRIPTION: "An AI-powered Kubernetes operator for scaling workloads." 
-        BUNDLE_CHANNELS: "stable" 
         OPERATOR_EMAIL: "rajaravindra919@gmail.com"
       run: |
         cd operator
