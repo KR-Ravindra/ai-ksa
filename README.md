@@ -146,6 +146,7 @@ curl -X POST http://operator-controller-manager-autoscale-trigger.operator-syste
   "namespace": "default",
   "deployment": "somegix",
   "metricType": "overwrite",
-  "instructReplicas": 20
+  "instructReplicas": 20,
+  "callBy": "sample"
 }'
 ```

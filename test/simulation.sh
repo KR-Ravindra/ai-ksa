@@ -26,9 +26,9 @@ echo "Creating deployments..."
 kubectl create deployment cpu --image=nginx --replicas=1
 kubectl create deployment memory --image=nginx --replicas=1
 kubectl create deployment external --image=nginx --replicas=1
-kubectl create deployment ai-based --image=nginx --replicas=1
 kubectl create deployment onetime-scaler --image=nginx --replicas=1
 kubectl create deployment recurring-scaler --image=nginx --replicas=1
+kubectl apply -f ai-based.yaml
 
 # Deploy cpu-autoscaler and memory-autoscaler
 
@@ -37,7 +37,7 @@ kubectl apply -f ./cpu-crd.yaml
 kubectl apply -f ./memory-crd.yaml
 
 # Get time in RFC3339 format
-TIME=$(date -u -v+2M +"%Y-%m-%dT%H:%M:%SZ")
+TIME=$(date -u -v+1M +"%Y-%m-%dT%H:%M:%SZ")
 echo $TIME
 
 
@@ -65,9 +65,9 @@ kubectl wait --for=condition=ready --timeout=20s pod -l app=recurring-scaler
 
 # Generate load on CPU and memory deployments
 echo "Generating load on CPU and memory deployments..."
-kubectl exec -it $(kubectl get pods -l app=cpu -o jsonpath='{.items[0].metadata.name}') -- yes > /dev/null &
-kubectl exec -it $(kubectl get pods -l app=memory -o jsonpath='{.items[0].metadata.name}') -- yes > /dev/null &
-kubectl exec -it $(kubectl get pods -l app=ai-based -o jsonpath='{.items[0].metadata.name}') -- yes > /dev/null &
+kubectl exec  $(kubectl get pods -l app=cpu -o jsonpath='{.items[0].metadata.name}') -- yes > /dev/null &
+kubectl exec  $(kubectl get pods -l app=memory -o jsonpath='{.items[0].metadata.name}') -- yes > /dev/null &
+
 
 # Scaling via external curl
 echo "Scaling via external curl..."

@@ -8,6 +8,6 @@ spec:
   targetDeploymentNamespace: default
   schedule: "*/1 * * * *" # Every 5 minutes
   duration: "10"            # Duration in minutes
-  replicas: 4           # Number of replicas to scale up to
+  replicas: 2           # Number of replicas to scale up to
   endReplicas: 1         # Number of replicas to scale down to after the duration
   oneTime: false         # Indicates this is a recurring scaling event

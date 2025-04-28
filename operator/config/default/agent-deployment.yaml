@@ -26,16 +26,16 @@ spec:
         - name: HISTORY_LENGTH
           value: "10"
         - name: SCAN_INTERVAL
-          value: "15"
+          value: "5"
         - name: SCALE_UP_THRESHOLD
-          value: "800"
+          value: "100"
         - name: SCALE_DOWN_THRESHOLD
-          value: "200"
+          value: "20"
         - name: MODEL_TYPE
           value: "arima"
         - name: CONSISTENCY_THRESHOLD
           value: "2"
         - name: AUTOSCALER_API_URL
-          value: "http://controller-manager-autoscale-trigger:8080"
+          value: "http://operator-controller-manager-autoscale-trigger:8080/trigger"
       serviceAccountName: controller-manager
       terminationGracePeriodSeconds: 10
