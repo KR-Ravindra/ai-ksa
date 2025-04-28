@@ -1,0 +1,290 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
+metadata:
+  annotations:
+    alm-examples: |-
+      [
+        {
+          "apiVersion": "autoscaling.cortex.me/v1",
+          "kind": "AIHorizontalPodAutoscaler",
+          "metadata": {
+            "labels": {
+              "app.kubernetes.io/managed-by": "kustomize",
+              "app.kubernetes.io/name": "operator"
+            },
+            "name": "aihorizontalpodautoscaler-sample"
+          },
+          "spec": null
+        },
+        {
+          "apiVersion": "autoscaling.cortex.me/v1",
+          "kind": "ScheduledScaler",
+          "metadata": {
+            "labels": {
+              "app.kubernetes.io/managed-by": "kustomize",
+              "app.kubernetes.io/name": "operator"
+            },
+            "name": "scheduledscaler-sample"
+          },
+          "spec": null
+        }
+      ]
+    capabilities: Basic Install
+    createdAt: "2025-04-28T04:19:34Z"
+    operators.operatorframework.io/builder: operator-sdk-v1.39.2
+    operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
+  name: operator.v0.0.1
+  namespace: placeholder
+spec:
+  apiservicedefinitions: {}
+  customresourcedefinitions:
+    owned:
+    - description: AIHorizontalPodAutoscaler is the Schema for the aihorizontalpodautoscalers
+        API
+      displayName: AIHorizontal Pod Autoscaler
+      kind: AIHorizontalPodAutoscaler
+      name: aihorizontalpodautoscalers.autoscaling.cortex.me
+      version: v1
+    - description: ScheduledScaler is the Schema for the scheduledscalers API
+      displayName: Scheduled Scaler
+      kind: ScheduledScaler
+      name: scheduledscalers.autoscaling.cortex.me
+      version: v1
+  description: test
+  displayName: test
+  icon:
+  - base64data: ""
+    mediatype: ""
+  install:
+    spec:
+      clusterPermissions:
+      - rules:
+        - apiGroups:
+          - apps
+          resources:
+          - deployments
+          verbs:
+          - get
+          - list
+          - update
+          - watch
+        - apiGroups:
+          - autoscaling.cortex.me
+          resources:
+          - aihorizontalpodautoscalers
+          - scheduledscalers
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - autoscaling.cortex.me
+          resources:
+          - aihorizontalpodautoscalers/finalizers
+          - scheduledscalers/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - autoscaling.cortex.me
+          resources:
+          - aihorizontalpodautoscalers/status
+          - scheduledscalers/status
+          verbs:
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - batch
+          resources:
+          - cronjobs
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - update
+          - watch
+        - apiGroups:
+          - batch
+          resources:
+          - cronjobs/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - batch
+          resources:
+          - cronjobs/status
+          verbs:
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - ""
+          - metrics.k8s.io
+          resources:
+          - pods
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - authentication.k8s.io
+          resources:
+          - tokenreviews
+          verbs:
+          - create
+        - apiGroups:
+          - authorization.k8s.io
+          resources:
+          - subjectaccessreviews
+          verbs:
+          - create
+        serviceAccountName: operator-controller-manager
+      deployments:
+      - label:
+          app.kubernetes.io/managed-by: kustomize
+          app.kubernetes.io/name: ai-scaling-agent
+        name: operator-ai-scaling-agent
+        spec:
+          replicas: 1
+          selector:
+            matchLabels:
+              app.kubernetes.io/name: ai-scaling-agent
+          strategy: {}
+          template:
+            metadata:
+              annotations:
+                kubectl.kubernetes.io/default-container: ai-scaling-agent
+              labels:
+                app.kubernetes.io/name: ai-scaling-agent
+            spec:
+              containers:
+              - env:
+                - name: CPU_HISTORY_LENGTH
+                  value: "10"
+                - name: SCAN_INTERVAL
+                  value: "15"
+                - name: SCALE_UP_THRESHOLD
+                  value: "800"
+                - name: SCALE_DOWN_THRESHOLD
+                  value: "200"
+                - name: MODEL_TYPE
+                  value: arima
+                - name: CONSISTENCY_THRESHOLD
+                  value: "2"
+                - name: AUTOSCALER_API_URL
+                  value: http://controller-manager-autoscale-trigger:8080
+                image: ai-scaling-agent
+                name: ai-scaling-agent
+                resources: {}
+              serviceAccountName: operator-controller-manager
+              terminationGracePeriodSeconds: 10
+      - label:
+          app.kubernetes.io/managed-by: kustomize
+          app.kubernetes.io/name: operator
+          control-plane: controller-manager
+        name: operator-controller-manager
+        spec:
+          replicas: 1
+          selector:
+            matchLabels:
+              control-plane: controller-manager
+          strategy: {}
+          template:
+            metadata:
+              annotations:
+                kubectl.kubernetes.io/default-container: manager
+              labels:
+                control-plane: controller-manager
+            spec:
+              containers:
+              - args:
+                - --leader-elect
+                - --health-probe-bind-address=:8081
+                command:
+                - /manager
+                image: controller:latest
+                livenessProbe:
+                  httpGet:
+                    path: /healthz
+                    port: 8081
+                  initialDelaySeconds: 15
+                  periodSeconds: 20
+                name: manager
+                readinessProbe:
+                  httpGet:
+                    path: /readyz
+                    port: 8081
+                  initialDelaySeconds: 5
+                  periodSeconds: 10
+                resources:
+                  limits:
+                    cpu: 500m
+                    memory: 128Mi
+                  requests:
+                    cpu: 10m
+                    memory: 64Mi
+                securityContext:
+                  allowPrivilegeEscalation: false
+                  capabilities:
+                    drop:
+                    - ALL
+              securityContext:
+                runAsNonRoot: true
+              serviceAccountName: operator-controller-manager
+              terminationGracePeriodSeconds: 10
+      permissions:
+      - rules:
+        - apiGroups:
+          - ""
+          resources:
+          - configmaps
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - update
+          - patch
+          - delete
+        - apiGroups:
+          - coordination.k8s.io
+          resources:
+          - leases
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - update
+          - patch
+          - delete
+        - apiGroups:
+          - ""
+          resources:
+          - events
+          verbs:
+          - create
+          - patch
+        serviceAccountName: operator-controller-manager
+    strategy: deployment
+  installModes:
+  - supported: false
+    type: OwnNamespace
+  - supported: false
+    type: SingleNamespace
+  - supported: false
+    type: MultiNamespace
+  - supported: true
+    type: AllNamespaces
+  keywords:
+  - test
+  links:
+  - name: Operator
+    url: https://operator.domain
+  maturity: alpha
+  minKubeVersion: 1.22.0
+  provider:
+    name: test
+    url: test
+  version: 0.0.1
