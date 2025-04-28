@@ -8,7 +8,7 @@ AI-KSA is focused on building an AI enabled Kubernetes Scaling Agent to help wit
 
 ## Highlights
 
-- [x] Option to abstract metrics logic out of autoscaler for overriding base scaling logic of Kubernetes - `desiredReplicas = ceil[currentReplicas * ( currentMetricValue / desiredMetricValue )]`
+- [x] Option to abstract metrics logic out of autoscaler and even Kuberentes itself, for overriding base scaling logic of Kubernetes - `desiredReplicas = ceil[currentReplicas * ( currentMetricValue / desiredMetricValue )]`
 
 - [x] Scaling based on CPU, RAM real values as Horizantal Pod Scaling != Unlimited Node Scaling
 
