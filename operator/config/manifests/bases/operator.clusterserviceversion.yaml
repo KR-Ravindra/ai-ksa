@@ -8,7 +8,6 @@ metadata:
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
-  minKubeVersion: "1.22.0"
   customresourcedefinitions:
     owned:
     - description: AIHorizontalPodAutoscaler is the Schema for the aihorizontalpodautoscalers
@@ -46,6 +45,7 @@ spec:
   - name: Operator
     url: https://operator.domain
   maturity: alpha
+  minKubeVersion: 1.22.0
   provider:
     name: test
     url: test
