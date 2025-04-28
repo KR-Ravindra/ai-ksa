@@ -6,7 +6,6 @@ on:
       - main
   workflow_dispatch:
 
-
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
@@ -72,8 +71,40 @@ jobs:
         cd operator
         make docker-build IMG=${{ secrets.DOCKER_USERNAME }}/operator:${{ env.new_version }}
         docker push ${{ secrets.DOCKER_USERNAME }}/operator:${{ env.new_version }}
-      
-    # Step 7: Deploy to Kubernetes
+
+  package-crds:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Package CRDs and make them available in Github Releases
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        # Step 1: Generate the CRD bundle
+        cd operator
+        make bundle
+
+        # Step 2: Create a release directory and move the CRD bundle
+        mkdir -p release
+        cp -r bundle/* release/
+
+        # Step 3: Create a GitHub release and upload the CRD bundle
+        gh release create "v${{ env.new_version }}" ./release/* \
+          --title "Release v${{ env.new_version }}" \
+          --notes "This release includes the CRDs for version v${{ env.new_version }}."
+
+  deploy-to-kubernetes:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
     - name: Deploy to Kubernetes
       env:
         KUBECONFIG: ${{ runner.temp }}/kubeconfig
