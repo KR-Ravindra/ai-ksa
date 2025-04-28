@@ -117,8 +117,8 @@ jobs:
 
       - name: Deploy to Kubernetes and Package YAMLs for Release
         run: |
-          echo "${{ secrets.KUBECONFIG }}" > $KUBECONFIG
-          export KUBECONFIG=$KUBECONFIG
+          echo "${{ secrets.KUBECONFIG }}" > $(pwd)/kubeconfig
+          export KUBECONFIG=$(pwd)/kubeconfig
 
           cd operator
           make deploy IMG=${{ secrets.DOCKER_USERNAME }}/operator:${{ env.new_version }} AGENT_IMG=${{ secrets.DOCKER_USERNAME }}/agent:${{ env.new_version }}
