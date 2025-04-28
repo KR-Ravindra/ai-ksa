@@ -89,7 +89,7 @@ jobs:
         OPERATOR_EMAIL: "rajaravindra919@gmail.com"
       run: |
         cd operator
-        make bundle
+        make bundle IMG=${{ secrets.DOCKER_USERNAME }}/operator:${{ env.new_version }} AGENT_IMG=${{ secrets.DOCKER_USERNAME }}/agent:${{ env.new_version }}
         mkdir -p release
         tar -czvf release/ki-asagent-${{ env.new_version }}.tar.gz -C bundle .
 
