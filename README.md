@@ -117,7 +117,7 @@ List of environment variables:
 | MODEL_TYPE | Select the AI technique used by the agent. Available options: arima (Autoregressive integrated moving average), decision_tree, gradient_boosting, rule_based | arima | `deployment.apps/operator-ai-scaling-agent` |
 | CONSISTENCY_THRESHOLD | Measure of consistent prediction before actual scaling | 2 | `deployment.apps/operator-ai-scaling-agent` |
 | AUTOSCALER_API_URL | API URL used by agent to call scaling controller for scaling decisions | `controller-manager-autoscale-trigger` (assuming agent runs within cluster) | `deployment.apps/operator-ai-scaling-agent` |
-| NOTIFICATION_URL | API URL used by controller for sending in notifications to selected channel | `https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXX` (slack default) | `deployment.apps/operator-controller-manager` |
+| NOTIFICATION_URL | API URL used by controller for sending in notifications to selected channel | `https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXX` (fetches from secret, make sure you have this secret available) | `deployment.apps/operator-controller-manager` |
 
 
 ## Webhook usage for third party integration

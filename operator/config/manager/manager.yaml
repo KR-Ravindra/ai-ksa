@@ -67,7 +67,10 @@ spec:
         name: manager
         env:
         - name: NOTIFICATION_URL
-          value: "https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXX"
+          valueFrom:
+            secretKeyRef:
+              name: notification-url
+              key: NOTIFICATION_URL
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
