@@ -28,9 +28,9 @@ spec:
         - name: SCAN_INTERVAL
           value: "5"
         - name: SCALE_UP_THRESHOLD
-          value: "400"
+          value: "5"
         - name: SCALE_DOWN_THRESHOLD
-          value: "200"
+          value: "2"
         - name: MODEL_TYPE
           value: "arima"
         - name: CONSISTENCY_THRESHOLD

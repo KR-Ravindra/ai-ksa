@@ -20,6 +20,7 @@ if [ "$1" == "cleanup" ]; then
 fi
 
 
+
 # Create deployments with name cpu, memory, external, ai-based, onetime-scaler, recurring-scaler
 
 echo "Creating deployments..."
@@ -28,7 +29,8 @@ kubectl create deployment memory --image=nginx --replicas=1
 kubectl create deployment external --image=nginx --replicas=1
 kubectl create deployment onetime-scaler --image=nginx --replicas=1
 kubectl create deployment recurring-scaler --image=nginx --replicas=1
-kubectl apply -f ai-based.yaml
+kubectl create deployment ai-based --image=nginx --replicas=1
+
 
 # Deploy cpu-autoscaler and memory-autoscaler
 
@@ -67,6 +69,7 @@ kubectl wait --for=condition=ready --timeout=20s pod -l app=recurring-scaler
 echo "Generating load on CPU and memory deployments..."
 kubectl exec  $(kubectl get pods -l app=cpu -o jsonpath='{.items[0].metadata.name}') -- yes > /dev/null &
 kubectl exec  $(kubectl get pods -l app=memory -o jsonpath='{.items[0].metadata.name}') -- yes > /dev/null &
+kubectl exec  $(kubectl get pods -l app=ai-based -o jsonpath='{.items[0].metadata.name}') -- yes > /dev/null &
 
 
 # Scaling via external curl

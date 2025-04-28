@@ -18,4 +18,4 @@ spec:
       - name: stress
         image: progrium/stress
         command: ["stress"]
-        args: ["--cpu", "4", "--vm", "2", "--vm-bytes", "512M", "--timeout", "6000"]
+        args: ["--cpu", "2", "--vm", "2", "--vm-bytes", "512M", "--timeout", "6000"]
