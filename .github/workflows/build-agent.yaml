@@ -3,10 +3,8 @@ name: Build and Push Agent
 on:
   workflow_dispatch:
   push:
-    paths:
-      - 'ai-agent/**'
-      - '.github/workflows/build-agent.yaml'
-      - 'VERSION'
+    branches:
+      - main
 
 jobs:
   build-and-push:

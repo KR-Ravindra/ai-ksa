@@ -23,7 +23,7 @@ spec:
       - image: ai-scaling-agent
         name: ai-scaling-agent
         env:
-        - name: CPU_HISTORY_LENGTH
+        - name: HISTORY_LENGTH
           value: "10"
         - name: SCAN_INTERVAL
           value: "15"

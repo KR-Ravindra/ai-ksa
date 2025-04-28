@@ -4,8 +4,8 @@ metadata:
   name: one-time-scaler
   namespace: default
 spec:
-  targetDeploymentName: nginx
+  targetDeploymentName: onetime-scaler  # Name of the deployment to scale 
   targetDeploymentNamespace: default
-  startTime: "2025-04-10T20:55:00Z" # Exact time in RFC3339 format
+  startTime: "TIME_GOES_HERE"   # "2025-04-10T20:55:00Z" # Exact time in RFC3339 format
   replicas: 5                       # Number of replicas to scale up to
   oneTime: true                     # Indicates this is a one-time scaling event

@@ -4,7 +4,7 @@ metadata:
   name: recurring-scaler
   namespace: default
 spec:
-  targetDeploymentName: nginx
+  targetDeploymentName: recurring-scaler  # Name of the deployment to scale
   targetDeploymentNamespace: default
   schedule: "*/1 * * * *" # Every 5 minutes
   duration: "10"            # Duration in minutes

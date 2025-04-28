@@ -6,6 +6,18 @@ AI-KSA is focused on building an AI enabled Kubernetes Scaling Agent to help wit
 
 ![](./documentation/aiksa.png)
 
+
+## Comparision 
+
+A comparision table is given below, so as to compare with existing best performing autoscalers solving horizantal pod autoscaling in kubernetes.
+
+| Horizantal Pod Autoscaler | Scaling by CPU, RAM usage | CPU, RAM usage by real values | External Events | Metrics | AI enabled | Webhook | Schedule scaling | Custom Enhancements | Easy of Use |
+| ----------- | ----------- | ----------- | ----------- | ----------- | ----------- | ----------- | ----------- | ---------- | ---------- |
+| KEDA ![](./documentation/keda-logo.png) | :white_check_mark: | :x: | :white_check_mark: (limited) | :white_check_mark: | :x: | :x: | :white_check_mark: | :white_check_mark: (limited) | Medium |
+| Kubernetes HPA ![](./documentation/hpa.jpg) | :white_check_mark: | :x: | :x: | :white_check_mark: (beta, needs translation) | :x: | :x: | :x: |  :x: | Very Easy |
+| AI-KSA | :x:| :white_check_mark: | :white_check_mark: (Need to extend) | :white_check_mark: | :white_check_mark: (4 AI techniques) | :white_check_mark: | :white_check_mark: | :white_check_mark: | Very Easy |
+
+
 ## Highlights
 
 - [x] Option to abstract metrics logic out of autoscaler and even Kuberentes itself, for overriding base scaling logic of Kubernetes - `desiredReplicas = ceil[currentReplicas * ( currentMetricValue / desiredMetricValue )]`
@@ -25,6 +37,9 @@ AI-KSA is focused on building an AI enabled Kubernetes Scaling Agent to help wit
 - [x] Scheduling scaling capabilities for non-recurring events
 
 - [x] On the fly AI based decisions with support for techniques - decision trees, arima, gradient_boosting, rule_based
+
+- [x] Ability to move scaling agent out of target Kubernetes Cluster.
+
 
 ## CRDs 
 
@@ -61,16 +76,6 @@ spec:
   oneTime: false         # Indicates this is a recurring scaling event
 ```
 
-## Comparision 
-
-A comparision table is given below, so as to compare with existing best performing autoscalers solving horizantal pod autoscaling in kubernetes.
-
-| Horizantal Pod Autoscaler | Scaling by CPU, RAM usage | CPU, RAM usage by real values | External Events | Metrics | AI enabled | Webhook | Schedule scaling | Custom Enhancements | Easy of Use |
-| ----------- | ----------- | ----------- | ----------- | ----------- | ----------- | ----------- | ----------- | ---------- | ---------- |
-| KEDA ![](./documentation/keda-logo.png) | :white_check_mark: | :x: | :white_check_mark: (limited) | :white_check_mark: | :x: | :x: | :white_check_mark: | :white_check_mark: (limited) | Medium |
-| Kubernetes HPA ![](./documentation/hpa.jpg) | :white_check_mark: | :x: | :x: | :white_check_mark: (beta, needs translation) | :x: | :x: | :x: |  :x: | Very Easy |
-| AI-KSA | :x:| :white_check_mark: | :white_check_mark: (Need to extend) | :white_check_mark: | :white_check_mark: (4 AI techniques) | :white_check_mark: | :white_check_mark: | :white_check_mark: | Very Easy |
-
 ## Operator Manifests
 List of manifests deployed as part of the operator.
 ```
@@ -95,13 +100,33 @@ deployment.apps/operator-controller-manager
 deployment.apps/operator-ai-scaling-agent
 ```
 
-## Using Webhook
+
+## To Install on cluster from releases
+
+Follow instructions for your release [here](https://github.com/KR-Ravindra/ai-ksa/releases)
+Agent configuration could be tweaked by using environment variables on `deployment.apps/operator-ai-scaling-agent`
+
+List of environment variables:
+
+| Environment Variable | Description | Default Value | Kubernetes Resource |
+| ----------- | ----------- | ----------- | ------- |
+| CPU_HISTORY_LENGTH | Historical Records to store in regards of CPU & Memory before generating scaling decisions | 10 | `deployment.apps/operator-ai-scaling-agent` |
+| SCAN_INTERVAL | Historical Records to store in regards of RAM before generating scaling decisions | 15 (in seconds) | `deployment.apps/operator-ai-scaling-agent` |
+| SCALE_UP_THRESHOLD | Scale up threshold in real values for CPU | 800 (in nm) | `deployment.apps/operator-ai-scaling-agent` |
+| SCALE_DOWN_THRESHOLD | Scale down threshold in real values for CPU | 200 (in nm) | `deployment.apps/operator-ai-scaling-agent` |
+| MODEL_TYPE | Select the AI technique used by the agent. Available options: arima (Autoregressive integrated moving average), decision_tree, gradient_boosting, rule_based | arima | `deployment.apps/operator-ai-scaling-agent` |
+| CONSISTENCY_THRESHOLD | Measure of consistent prediction before actual scaling | 2 | `deployment.apps/operator-ai-scaling-agent` |
+| AUTOSCALER_API_URL | API URL used by agent to call scaling controller for scaling decisions | `controller-manager-autoscale-trigger` (assuming agent runs within cluster) | `deployment.apps/operator-ai-scaling-agent` |
+| NOTIFICATION_URL | API URL used by controller for sending in notifications to selected channel | `https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXX` (slack default) | `deployment.apps/operator-controller-manager` |
+
+
+## Webhook usage for third party integration
 
 Within Cluster
 ```
 curl -X POST http://operator-controller-manager-autoscale-trigger.operator-system.svc.cluster.local:8080/trigger -H "Content-Type: application/json" -d '{
   "namespace": "default",
-  "deployment": "somegix",
+  "deployment": "external",
   "metricType": "overwrite",
   "instructReplicas": 20
 }'

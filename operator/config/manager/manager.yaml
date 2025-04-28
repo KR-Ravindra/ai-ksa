@@ -65,6 +65,9 @@ spec:
           - --health-probe-bind-address=:8081
         image: controller:latest
         name: manager
+        env:
+        - name: NOTIFICATION_URL
+          value: "https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXX"
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:

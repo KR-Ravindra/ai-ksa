@@ -107,12 +107,15 @@ func (r *AIHorizontalPodAutoscalerReconciler) Reconcile(ctx context.Context, req
 }
 
 func sendNotification(message string, callBy string) error {
-	webhookURL := os.Getenv("SLACK_WEBHOOK_URL")
+	webhookURL := os.Getenv("NOTIFICATION_URL")
 	logger := log.FromContext(context.Background())
-	logger.Info("Sending notification to Slack", "WebhookURL", webhookURL, "Message", message, "CallBy", callBy)
+	logger.Info("Sending notification to Notification Channel", "WebhookURL", webhookURL, "Message", message, "CallBy", callBy)
+	
 	if webhookURL == "" {
-		webhookURL = "https://hooks.slack.com/services/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"
+		logger.Error(fmt.Errorf("NOTIFICATION_URL not set"), "Webhook URL is not set")
+		return fmt.Errorf("NOTIFICATION_URL not set")
 	}
+
 	payload := map[string]interface{}{
 		"blocks": []map[string]interface{}{
 			{

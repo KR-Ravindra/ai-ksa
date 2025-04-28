@@ -12,7 +12,8 @@
 - kubectl version v1.11.3+.
 - Access to a Kubernetes v1.11.3+ cluster.
 
-### To Deploy on the cluster
+
+### To Deploy on the cluster from source code
 **Build and push your image to the location specified by `IMG`:**
 
 ```sh
