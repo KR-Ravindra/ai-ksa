@@ -103,17 +103,22 @@ jobs:
     needs: [build-operator, build-agent]
     runs-on: ubuntu-latest
     env:
-      KUBECONFIG: ${{ runner.temp }}/kubeconfig
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
       new_version: ${{ needs.setup.outputs.new_version }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+      
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v1
+        with:
+          version: 'latest'
 
       - name: Deploy to Kubernetes and Package YAMLs for Release
         run: |
           echo "${{ secrets.KUBECONFIG }}" > $KUBECONFIG
+          export KUBECONFIG=$KUBECONFIG
 
           cd operator
           make deploy IMG=${{ secrets.DOCKER_USERNAME }}/operator:${{ env.new_version }} AGENT_IMG=${{ secrets.DOCKER_USERNAME }}/agent:${{ env.new_version }}
