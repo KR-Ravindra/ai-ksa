@@ -85,11 +85,16 @@ jobs:
         OPERATOR_NAME: "AI-KSA Operator" 
         OPERATOR_DESCRIPTION: "An AI-powered Kubernetes operator for scaling workloads." 
         BUNDLE_CHANNELS: "stable" 
-        BUNDLE_DEFAULT_CHANNEL: "stable" 
         OPERATOR_EMAIL: "rajaravindra919@gmail.com"
       run: |
         cd operator
         make bundle IMG=${{ secrets.DOCKER_USERNAME }}/operator:${{ env.new_version }} AGENT_IMG=${{ secrets.DOCKER_USERNAME }}/agent:${{ env.new_version }}
+        mkdir -p release
+        tar -czvf release/ki-asagent-${{ env.new_version }}.tar.gz -C bundle .
+
+        gh release create "v${{ env.new_version }}" ./release/ki-asagent-${{ env.new_version }}.tar.gz \
+          --title "Release v${{ env.new_version }}" \
+          --notes "This release includes the CRDs for version v${{ env.new_version }}."
 
 
   deploy-to-kubernetes:
