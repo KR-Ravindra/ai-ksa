@@ -8,7 +8,7 @@ AI-KSA is focused on building an AI enabled Kubernetes Scaling Agent to help wit
 
 ## Highlights
 
-- [x] Option to abstract metrics logic out of autoscaler for overriding base scaling logic of Kubernetes - `desiredReplicas = ceil[currentReplicas * ( currentMetricValue / desiredMetricValue )]`
+- [x] Option to abstract metrics logic out of autoscaler and even Kuberentes itself, for overriding base scaling logic of Kubernetes - `desiredReplicas = ceil[currentReplicas * ( currentMetricValue / desiredMetricValue )]`
 
 - [x] Scaling based on CPU, RAM real values as Horizantal Pod Scaling != Unlimited Node Scaling
 
@@ -69,7 +69,7 @@ A comparision table is given below, so as to compare with existing best performi
 | ----------- | ----------- | ----------- | ----------- | ----------- | ----------- | ----------- | ----------- | ---------- | ---------- |
 | KEDA ![](./documentation/keda-logo.png) | :white_check_mark: | :x: | :white_check_mark: (limited) | :white_check_mark: | :x: | :x: | :white_check_mark: | :white_check_mark: (limited) | Medium |
 | Kubernetes HPA ![](./documentation/hpa.jpg) | :white_check_mark: | :x: | :x: | :white_check_mark: (beta, needs translation) | :x: | :x: | :x: |  :x: | Very Easy |
-| AI-KSA | :white_check_mark: | :x:| :white_check_mark: (Need to extend) | :white_check_mark: | :white_check_mark: (4 AI techniques) | :white_check_mark: | :white_check_mark: | :white_check_mark: | Very Easy |
+| AI-KSA | :x:| :white_check_mark: | :white_check_mark: (Need to extend) | :white_check_mark: | :white_check_mark: (4 AI techniques) | :white_check_mark: | :white_check_mark: | :white_check_mark: | Very Easy |
 
 ## Operator Manifests
 List of manifests deployed as part of the operator.
@@ -91,7 +91,8 @@ clusterrolebinding.rbac.authorization.k8s.io/operator-manager-rolebinding
 clusterrolebinding.rbac.authorization.k8s.io/operator-metrics-auth-rolebinding 
 service/operator-controller-manager-autoscale-trigger 
 service/operator-controller-manager-metrics-service 
-deployment.apps/operator-controller-manager 
+deployment.apps/operator-controller-manager
+deployment.apps/operator-ai-scaling-agent
 ```
 
 ## Using Webhook
@@ -107,11 +108,12 @@ curl -X POST http://operator-controller-manager-autoscale-trigger.operator-syste
 ```
 Outside Cluster
 ```
-curl -X POST http://134.199.185.13:32522/trigger -H "Content-Type: application/json" -d '{
+ curl -X POST http://x.y.com/trigger -H "Content-Type: application/json" -d '{
   "namespace": "default",
-  "deployment": "external",
+  "deployment": "ai-based",
   "metricType": "overwrite",
-  "instructReplicas": 10
+  "instructReplicas": 20,
+  "callBy": "demo-trigger"
 }'
 ```
 ```
