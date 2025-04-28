@@ -8,6 +8,7 @@ metadata:
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
+  minKubeVersion: "1.22.0"
   customresourcedefinitions:
     owned:
     - description: AIHorizontalPodAutoscaler is the Schema for the aihorizontalpodautoscalers
