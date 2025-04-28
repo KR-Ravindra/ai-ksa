@@ -129,4 +129,4 @@ jobs:
           # Upload the packaged YAMLs to GitHub Release
           gh release create "v${{ env.new_version }}" ./release/aiksa-agent-${{ env.new_version }}.yaml \
             --title "Release v${{ env.new_version }}" \
-            --notes "This release includes the deployment YAMLs for version v${{ env.new_version }}. To install, run:\n\n \`\`\`bash \n kubectl apply -f https://github.com/KR-Ravindra/ai-ksa/releases/download/v${{ env.new_version }}/aiksa-agent-${{ env.new_version }}.yaml\n\`\`\`\n\nFor more details, visit [the documentation](https://github.com/KR-Ravindra/ai-ksa)."
+            --notes "This release includes the deployment YAMLs for version v${{ env.new_version }}. To install, run:\n\n \`\`\` kubectl apply -f https://github.com/KR-Ravindra/ai-ksa/releases/download/v${{ env.new_version }}/aiksa-agent-${{ env.new_version }}.yaml \`\`\`. For more details, visit [the documentation](https://github.com/KR-Ravindra/ai-ksa)."
