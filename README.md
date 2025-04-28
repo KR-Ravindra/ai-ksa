@@ -76,6 +76,16 @@ spec:
   oneTime: false         # Indicates this is a recurring scaling event
 ```
 
+### Scaling by labels + AI
+
+To make use of Agentic AI scaling; Your deployments need to be labeled `ai-scaling=true`. For example consider the following command
+
+```
+kubernetes label deployment default/ai-based ai-scaling=true
+```
+
+You can find this simulation at [here](./test/simulation.sh) and in the video documentation [on youtube](https://youtu.be/05cD0QC6i4U)
+
 ## Operator Manifests
 List of manifests deployed as part of the operator.
 ```
@@ -150,3 +160,4 @@ curl -X POST http://operator-controller-manager-autoscale-trigger.operator-syste
   "callBy": "sample"
 }'
 ```
+## Video documentation on [YOUTUBE HERE!](https://youtu.be/05cD0QC6i4U)

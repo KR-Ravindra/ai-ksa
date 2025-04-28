@@ -67,9 +67,13 @@ kubectl wait --for=condition=ready --timeout=20s pod -l app=recurring-scaler
 
 # Generate load on CPU and memory deployments
 echo "Generating load on CPU and memory deployments..."
-kubectl exec  $(kubectl get pods -l app=cpu -o jsonpath='{.items[0].metadata.name}') -- yes > /dev/null &
 kubectl exec  $(kubectl get pods -l app=memory -o jsonpath='{.items[0].metadata.name}') -- yes > /dev/null &
-kubectl exec  $(kubectl get pods -l app=ai-based -o jsonpath='{.items[0].metadata.name}') -- yes > /dev/null &
+
+for i in {1..5}; do
+    kubectl exec  $(kubectl get pods -l app=cpu -o jsonpath='{.items[0].metadata.name}') -- yes > /dev/null &
+    kubectl exec  $(kubectl get pods -l app=ai-based -o jsonpath='{.items[0].metadata.name}') -- yes > /dev/null &
+done
+
 
 
 # Scaling via external curl

@@ -6,4 +6,4 @@ metadata:
 spec:
   targetDeploymentName: cpu
   targetDeploymentNamespace: default 
-  targetDeploymentCPUThreshold: 60
+  targetDeploymentCPUThreshold: 10
