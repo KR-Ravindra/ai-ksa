@@ -71,44 +71,20 @@ jobs:
         make docker-build IMG=${{ secrets.DOCKER_USERNAME }}/operator:${{ env.new_version }}
         docker push ${{ secrets.DOCKER_USERNAME }}/operator:${{ env.new_version }}
 
-  package-crds:
-    needs: build-and-push
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
-
-    - name: Package CRDs and make them available in Github Releases
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        OPERATOR_NAME: "AI-KSA Operator" 
-        OPERATOR_DESCRIPTION: "An AI-powered Kubernetes operator for scaling workloads." 
-        OPERATOR_EMAIL: "rajaravindra919@gmail.com"
-      run: |
-        cd operator
-        make bundle IMG=${{ secrets.DOCKER_USERNAME }}/operator:${{ env.new_version }} AGENT_IMG=${{ secrets.DOCKER_USERNAME }}/agent:${{ env.new_version }}
-        mkdir -p release
-        tar -czvf release/ki-asagent-${{ env.new_version }}.tar.gz -C bundle .
-
-        gh release create "v${{ env.new_version }}" ./release/ki-asagent-${{ env.new_version }}.tar.gz \
-          --title "Release v${{ env.new_version }}" \
-          --notes "This release includes the CRDs for version v${{ env.new_version }}."
-
-
-  deploy-to-kubernetes:
-    needs: build-and-push
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
-
-    - name: Deploy to Kubernetes
+    - name: Deploy to Kubernetes and Package YAMLs for Release
       env:
         KUBECONFIG: ${{ runner.temp }}/kubeconfig
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         echo "${{ secrets.KUBECONFIG }}" > $KUBECONFIG
+
         cd operator
-        kubectl get ns
         make deploy IMG=${{ secrets.DOCKER_USERNAME }}/operator:${{ env.new_version }} AGENT_IMG=${{ secrets.DOCKER_USERNAME }}/agent:${{ env.new_version }}
+
+        mkdir -p release
+        tar -czvf release/operator-deployment-${{ env.new_version }}.tar.gz -C config .
+
+        # Step 4: Upload the packaged YAMLs to GitHub Release
+        gh release create "v${{ env.new_version }}" ./release/operator-deployment-${{ env.new_version }}.tar.gz \
+          --title "Release v${{ env.new_version }}" \
+          --notes "This release includes the deployment YAMLs for version v${{ env.new_version }}."
