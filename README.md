@@ -160,4 +160,4 @@ curl -X POST http://operator-controller-manager-autoscale-trigger.operator-syste
   "callBy": "sample"
 }'
 ```
-## Video documentation on [YOUTUBE HERE!](https://youtu.be/05cD0QC6i4U)
+
